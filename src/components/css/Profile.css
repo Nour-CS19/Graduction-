@@ -1,0 +1,30 @@
+.profile {
+    min-height: calc(100vh - 200px);
+    display: flex;
+    flex-direction: column;
+  }
+  
+  @media (max-width: 768px) {
+    .profile .row {
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .profile .card {
+      padding: 1rem;
+    }
+    .profile img {
+      width: 30vw;
+      height: 30vw;
+      max-width: 150px;
+      max-height: 150px;
+    }
+  }
+  
+  .profile .form-control:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  }
+  
+  .profile .btn-primary {
+    min-width: 150px;
+  }

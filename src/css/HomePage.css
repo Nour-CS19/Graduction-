@@ -1,0 +1,23 @@
+/* Fixed Header */
+/* Make the header sticky */
+header {
+    position: sticky; /* Makes the header sticky */
+    top: 0;            /* Sticks it at the top of the viewport */
+    left: 0;
+    width: 100%;
+    z-index: 1000;     /* Ensures it stays on top of other content */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Optional shadow */
+    background-color: #fff;  /* Optional, to give a background color */
+  }
+  
+
+section {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.5s ease-in-out;
+}
+
+section.visible {
+    opacity: 1;
+    transform: translateY(0);
+}

@@ -1,0 +1,76 @@
+
+  
+  .bg-teal {
+    background-color: #20B2AA !important;
+  }
+  
+  .text-teal {
+    color: #20B2AA !important;
+  }
+  
+  .btn-teal {
+    background-color: #20B2AA;
+    border-color: #20B2AA;
+    color: white;
+  }
+  
+  .btn-teal:hover {
+    background-color: #1a9999;
+    border-color: #1a9999;
+    color: white;
+  }
+  
+  .rounded-4 {
+    border-radius: 1.5rem !important;
+  }
+  
+  .rounded-5 {
+    border-radius: 2rem !important;
+  }
+  
+  .custom-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 16px 12px;
+  }
+  
+  .form-control:focus,
+  .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  }
+  
+  .search-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  }
+  
+  .icon-blue {
+    color: #0d6efd;
+  }
+  
+  .icon-teal {
+    color: #20B2AA;
+  }
+  
+  .tab-active {
+    background-color: #20B2AA !important;
+  }
+  
+  .tab-inactive {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+  }
+  
+  .tab-clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .tab-clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  

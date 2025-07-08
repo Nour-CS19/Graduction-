@@ -1,0 +1,405 @@
+
+.dashboard-container {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  min-height: 100vh;
+  display: flex;
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dashboard-main {
+  flex-grow: 1;
+  padding: 1.5rem;
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Header Styles */
+.dashboard-header {
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid #e9ecef;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+}
+
+.header-logo h5 {
+  color: #009DA5;
+  font-weight: bold;
+  margin: 0 0 0 10px;
+}
+
+.toggle-sidebar-btn {
+  color: #009DA5;
+  font-size: 1.5rem;
+  padding: 0;
+}
+
+.notification-btn {
+  position: relative;
+  color: #009DA5;
+  font-size: 1.5rem;
+}
+
+.notification-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(50%, -50%);
+  background: #dc3545;
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 50%;
+}
+
+/* Sidebar Styles */
+.sidebar {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+  border-right: 1px solid #e9ecef;
+}
+
+.sidebar-header {
+  background: #009DA5;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.sidebar-header h6 {
+  color: #fff;
+  font-weight: 600;
+}
+
+.sidebar-nav .btn {
+  transition: all 0.3s ease;
+}
+
+.sidebar-nav .btn:hover {
+  background: #f8f9fa;
+  transform: translateX(3px);
+}
+
+.sidebar-nav .active {
+  background: linear-gradient(135deg, #009DA5 0%, #00b3bc 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(0, 157, 165, 0.3);
+}
+
+/* Dashboard Content */
+.welcome-section {
+  background: linear-gradient(135deg, #009DA5 0%, #00b3bc 100%);
+  padding: 20px;
+  border-radius: 10px;
+  color: #fff;
+  margin-bottom: 20px;
+}
+
+.welcome-section h2 {
+  margin-bottom: 0.5rem;
+  font-size: 1.75rem;
+}
+
+.welcome-section p {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+
+.stats-card {
+  background: #fff;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stats-card .card-body {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+}
+
+.stats-card i {
+  color: #009DA5;
+  font-size: 1.5rem;
+  margin-right: 1rem;
+}
+
+.stats-card h6 {
+  color: #6c757d;
+  margin-bottom: 0.25rem;
+}
+
+.stats-card h4 {
+  color: #009DA5;
+  margin: 0;
+}
+
+/* Calendar Section */
+.calendar-section {
+  margin-bottom: 1.5rem;
+}
+
+.calendar-section h4 {
+  font-size: 1.25rem;
+  margin-bottom: 0;
+}
+
+.create-appointment-btn {
+  background: #28a745;
+  border-color: #28a745;
+  border-radius: 50rem;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.create-appointment-btn:hover {
+  background: #218838;
+  border-color: #1e7e34;
+}
+
+.calendar-card {
+  border-color: #00b3bc;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-card .card-body {
+  padding: 1.5rem;
+}
+
+/* Modern Calendar Styles */
+.modern-calendar {
+  border: none !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+  font-family: 'Segoe UI', sans-serif !important;
+}
+
+.modern-calendar .react-calendar__tile {
+  padding: 12px !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+.modern-calendar .react-calendar__tile:hover {
+  background: #e3f2fd !important;
+  transform: scale(1.05) !important;
+}
+
+.modern-calendar .react-calendar__tile--active {
+  background: #009DA5 !important;
+  color: #ffffff !important;
+}
+
+.modern-calendar .highlight {
+  background: #d1e7dd !important;
+  color: #0f5132 !important;
+  font-weight: bold !important;
+  position: relative !important;
+}
+
+.appointment-indicator .dot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  background: #28a745;
+  border-radius: 50%;
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+}
+
+.react-calendar__navigation {
+  background: linear-gradient(135deg, #009DA5 0%, #00b3bc 100%) !important;
+  border-radius: 8px 8px 0 0 !important;
+  padding: 10px !important;
+}
+
+.react-calendar__navigation button {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  font-size: 1.1rem !important;
+}
+
+.react-calendar__month-view__weekdays {
+  background: #f8f9fa !important;
+  padding: 10px 0 !important;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  color: #495057 !important;
+  font-weight: 500 !important;
+}
+
+/* Appointments Table */
+.appointments-section h4 {
+  font-size: 1.25rem;
+}
+
+.appointments-card {
+  border-color: #00b3bc;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.appointments-card .card-header {
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.appointments-card .card-body {
+  padding: 1.5rem;
+}
+
+.table th {
+  cursor: pointer;
+  color: #495057;
+  font-weight: 600;
+}
+
+.table th:hover {
+  background: #f1f1f1;
+}
+
+/* Modal Styles */
+.modal-header.bg-gradient.bg-primary {
+  background: linear-gradient(135deg, #009DA5 0%, #00b3bc 100%) !important;
+  color: #fff;
+  border-bottom: none;
+  border-radius: 15px 15px 0 0;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.form-floating input,
+.form-floating label {
+  font-size: 0.95rem;
+}
+
+.form-floating input {
+  border: 2px solid #00b3bc;
+  border-radius: 8px;
+}
+
+.modal-footer.bg-light {
+  background: #f8f9fa;
+  border-top: none;
+  border-radius: 0 0 15px 15px;
+}
+
+.btn.rounded-pill {
+  padding: 0.5rem 1.5rem;
+}
+
+/* Notification Modal */
+.notification-modal .modal-header {
+  background: linear-gradient(135deg, #009DA5 0%, #00b3bc 100%);
+  color: #fff;
+  border-bottom: none;
+}
+
+.notification-modal .modal-body {
+  background: #f0f8f8;
+  padding: 20px;
+}
+
+.notification-item {
+  background: #fff;
+  border-left: 4px solid #009DA5;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+  .dashboard-main {
+    margin-left: 75px !important;
+  }
+
+  .welcome-section h2 {
+    font-size: 1.5rem;
+  }
+
+  .stats-card h4 {
+    font-size: 1.25rem;
+  }
+
+  .calendar-section h4,
+  .appointments-section h4 {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-main {
+    padding: 1rem;
+  }
+
+  .welcome-section {
+    padding: 15px;
+  }
+
+  .calendar-card .card-body {
+    padding: 1rem;
+  }
+
+  .create-appointment-btn {
+    font-size: 0.9rem;
+    padding: 0.4rem 1rem;
+  }
+
+  .table {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .header-logo svg {
+    width: 35px;
+    height: 25px;
+  }
+
+  .header-logo h5 {
+    font-size: 1.25rem;
+  }
+
+  .welcome-section h2 {
+    font-size: 1.25rem;
+  }
+
+  .stats-card i {
+    font-size: 1.25rem;
+  }
+
+  .stats-card h6 {
+    font-size: 0.9rem;
+  }
+
+  .stats-card h4 {
+    font-size: 1rem;
+  }
+
+  .calendar-section h4,
+  .appointments-section h4 {
+    font-size: 1rem;
+  }
+
+  .create-appointment-btn {
+    font-size: 0.85rem;
+    padding: 0.35rem 0.75rem;
+  }
+}

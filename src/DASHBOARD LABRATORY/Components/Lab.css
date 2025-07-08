@@ -1,0 +1,135 @@
+/* Root container for scoping */
+.physiocare-dashboard {
+    font-family: Arial, sans-serif;
+  }
+  
+  /* Enhanced Top Navbar */
+  .physiocare-dashboard-navbar {
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 0.75rem 1rem;
+  }
+  
+  .physiocare-dashboard-navbar .navbar-content {
+    display: flex;
+    align-items: center;
+  }
+  
+  .physiocare-dashboard-navbar .sidebar-toggle {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #333;
+  }
+  
+  .physiocare-dashboard-navbar .navbar-brand {
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    margin-left: 0.5rem;
+    color: #333;
+    text-decoration: none;
+  }
+  
+  .physiocare-dashboard-navbar .logo {
+    fill: #009DA5; /* Use the color from your SVG */
+  }
+  
+  /* Enhanced Profile Menu */
+  .physiocare-dashboard-navbar .profile-menu {
+    margin-left: auto;
+    position: relative;
+  }
+  
+  .physiocare-dashboard-navbar .profile-menu .dropdown-toggle {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 0.25rem 0.75rem;
+    color: #333;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background 0.3s;
+  }
+  
+  .physiocare-dashboard-navbar .profile-menu .dropdown-toggle:hover {
+    background: #f0f0f0;
+  }
+  
+  .physiocare-dashboard-navbar .dropdown-menu {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .physiocare-dashboard-navbar .dropdown-menu .dropdown-item {
+    font-size: 0.9rem;
+    color: #333;
+  }
+  
+  .physiocare-dashboard-navbar .dropdown-menu .dropdown-item:hover {
+    background: #f8f9fa;
+  }
+  
+  /* Dashboard Body Layout */
+  .dashboard-body {
+    display: flex;
+  }
+  
+  /* Sidebar Styles (gradient background with rounded right edges) */
+  .physiocare-dashboard-sidebar {
+    width: 250px;
+    height: 100vh;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    border-top-right-radius: 50px;
+    border-bottom-right-radius: 50px;
+    padding: 2rem 1rem;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease, padding 0.3s ease;
+  }
+  
+  .physiocare-dashboard-sidebar.collapsed {
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  
+  /* Sidebar title */
+  .physiocare-dashboard-sidebar .sidebar-title {
+    color: #fff;
+    text-align: center;
+    margin-bottom: 2rem;
+    font-weight: bold;
+  }
+  
+  /* Sidebar navigation links */
+  .physiocare-dashboard-sidebar .nav {
+    flex-grow: 1;
+  }
+  
+  .physiocare-dashboard-sidebar .nav-link {
+    color: #fff;
+    font-size: 1.1rem;
+    padding: 0.75rem 1rem;
+    margin: 0.25rem 0;
+    border-radius: 5px;
+    transition: background 0.3s ease;
+    text-decoration: none;
+  }
+  
+  .physiocare-dashboard-sidebar .nav-link:hover,
+  .physiocare-dashboard-sidebar .nav-link.active {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Content Area */
+  .physiocare-dashboard-content {
+    background: #fff;
+    min-height: 100vh;
+    width: 100%;
+  }
+  

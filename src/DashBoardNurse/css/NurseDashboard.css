@@ -1,0 +1,93 @@
+.nurse-dashboard {
+    display: flex;
+    height: 100vh;
+  }
+  
+  .sidebar {
+    width: 240px;
+    background-color: #f8f9fa;
+    transition: width 0.3s;
+    position: fixed;
+    height: 100%;
+    padding: 20px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  }
+  
+  .sidebar.closed {
+    width: 65px;
+  }
+  
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  
+  .sidebar-logo {
+    margin: 0;
+    font-weight: bold;
+    color: #009DA5;
+  }
+  
+  .sidebar-user {
+    margin: 5px 0 0;
+    font-size: 0.9rem;
+    color: #666;
+  }
+  
+  .sidebar-toggle {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #009DA5;
+  }
+  
+  .sidebar-nav ul {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .sidebar-nav ul li {
+    padding: 10px 15px;
+    cursor: pointer;
+    color: #333;
+    display: flex;
+    align-items: center;
+  }
+  
+  .sidebar-nav ul li.active,
+  .sidebar-nav ul li:hover {
+    background-color: #009DA5;
+    color: white;
+    border-radius: 5px;
+  }
+  
+  .sidebar-nav ul li .fa {
+    margin-right: 10px;
+  }
+  
+  .main-content {
+    margin-left: 240px;
+    padding: 20px;
+    transition: margin-left 0.3s;
+    width: calc(100% - 240px);
+  }
+  
+  .sidebar.closed + .main-content {
+    margin-left: 65px;
+    width: calc(100% - 65px);
+  }
+  
+  .dashboard-content {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .nurse-highlight {
+    padding: 15px;
+    border-left: 4px solid #009DA5;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }

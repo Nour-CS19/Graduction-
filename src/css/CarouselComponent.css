@@ -1,0 +1,30 @@
+.testimonial-section {
+    background-color: #f8f9fa;
+    padding: 60px 0;
+  }
+  
+  .testimonial-img {
+    border-radius: 50%;
+    max-width: 150px;
+  }
+  
+  .testimonial-img-container {
+    border-radius: 200px 0 200px 0;
+    overflow: hidden;
+  }
+  
+  .testimonial-content {
+    margin-top: 20px;
+  }
+  
+  .testimonial-controls button {
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    margin: 0 10px;
+  }
+  
+  .testimonial-rating .active {
+    color: gold;
+  }
+  

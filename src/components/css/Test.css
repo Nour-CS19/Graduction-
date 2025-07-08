@@ -1,0 +1,386 @@
+/* Testimonials.module.css */
+.testimonialsContainer {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+  }
+  
+  .testimonialsSection {
+    padding: 60px 0;
+  }
+  
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+  
+  .headerSection {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+  
+  .languageToggle {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 30px;
+  }
+  
+  .langBtn {
+    padding: 12px 30px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border-radius: 0;
+  }
+  
+  .langBtnPrimary {
+    border-radius: 25px 0 0 25px;
+    background-color: #007bff;
+    border-color: #007bff;
+  }
+  
+  .langBtnOutlinePrimary {
+    border-radius: 0 25px 25px 0;
+    border-left: none;
+    background-color: white;
+    color: #007bff;
+  }
+  
+  .langBtnPrimary:hover,
+  .langBtnPrimary:focus,
+  .langBtnPrimary:active,
+  .langBtnPrimary.active {
+    background-color: #0056b3 !important;
+    border-color: #0056b3 !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  
+  .langBtnOutlinePrimary:hover,
+  .langBtnOutlinePrimary:focus,
+  .langBtnOutlinePrimary:active {
+    background-color: #e3f2fd !important;
+    border-color: #007bff !important;
+    color: #007bff !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  
+  .mainTitle {
+    margin-bottom: 20px;
+    font-size: 3.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+  }
+  
+  .subtitle {
+    max-width: 800px;
+    margin: 0 auto;
+    line-height: 1.6;
+    font-size: 1.25rem;
+    color: #6c757d;
+  }
+  
+  .reviewForm {
+    max-width: 600px;
+    margin: 0 auto 40px;
+  }
+  
+  .reviewForm .formControl {
+    border-radius: 8px;
+    border: 2px solid #007bff;
+    resize: vertical;
+    padding: 10px;
+    font-size: 1rem;
+  }
+  
+  .reviewForm .btnPrimary {
+    padding: 10px 20px;
+    border-radius: 8px;
+    transition: background-color 0.3s ease;
+  }
+  
+  .reviewForm .btnPrimary:hover {
+    background-color: #0056b3;
+  }
+  
+  .reviewForm .btnPrimary:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  
+  .testimonialsGridWrapper {
+    overflow: hidden;
+    margin-bottom: 40px;
+  }
+  
+  .testimonialsGrid {
+    display: flex;
+    flex-wrap: nowrap;
+    animation: scroll-left 30s linear infinite;
+  }
+  
+  .testimonialCard {
+    padding: 0 15px;
+  }
+  
+  .card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    height: 300px;
+    transition: all 0.3s ease;
+  }
+  
+  .card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  }
+  
+  .cardBody {
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  
+  .authorInfo {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .authorName {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 5px;
+  }
+  
+  .patientLabel {
+    color: #6c757d;
+    font-style: italic;
+  }
+  
+  .rating {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .star {
+    font-size: 1.2rem;
+    margin: 0 2px;
+  }
+  
+  .starFilled {
+    color: #ffc107;
+  }
+  
+  .starHalf {
+    color: #ffc107;
+    opacity: 0.5;
+  }
+  
+  .starEmpty {
+    color: #ddd;
+  }
+  
+  .testimonialText {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+  }
+  
+  .testimonialText p {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #555;
+    margin: 0;
+    font-style: italic;
+  }
+  
+  .textArabic {
+    text-align: right;
+    direction: rtl;
+  }
+  
+  .positionIndicator {
+    text-align: center;
+  }
+  
+  .positionIndicator small {
+    font-size: 0.85rem;
+  }
+  
+  @keyframes scroll-left {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+  
+  .testimonialsGrid:hover {
+    animation-play-state: paused;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 1200px) {
+    .container {
+      max-width: 95%;
+    }
+    .mainTitle {
+      font-size: 3rem;
+    }
+  }
+  
+  @media (max-width: 992px) {
+    .testimonialCard {
+      min-width: calc(100% / 2);
+    }
+    .mainTitle {
+      font-size: 2.5rem;
+    }
+    .subtitle {
+      font-size: 1.1rem;
+      padding: 0 20px;
+    }
+    .card {
+      height: 280px;
+    }
+    .cardBody {
+      padding: 25px;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .testimonialsSection {
+      padding: 40px 0;
+    }
+    .headerSection {
+      margin-bottom: 40px;
+    }
+    .testimonialCard {
+      min-width: 100%;
+    }
+    .card {
+      height: 260px;
+    }
+    .mainTitle {
+      font-size: 2.2rem;
+      margin-bottom: 15px;
+    }
+    .subtitle {
+      font-size: 1rem;
+      padding: 0 15px;
+    }
+    .langBtn {
+      padding: 10px 25px;
+      font-size: 0.95rem;
+    }
+    .reviewForm .formControl {
+      font-size: 0.95rem;
+    }
+    .reviewForm .btnPrimary {
+      padding: 8px 16px;
+      font-size: 0.95rem;
+    }
+  }
+  
+  @media (max-width: 576px) {
+    .testimonialsSection {
+      padding: 30px 0;
+    }
+    .container {
+      padding: 0 10px;
+    }
+    .headerSection {
+      margin-bottom: 30px;
+    }
+    .languageToggle {
+      margin-bottom: 25px;
+    }
+    .card {
+      height: 240px;
+    }
+    .cardBody {
+      padding: 20px;
+    }
+    .mainTitle {
+      font-size: 1.8rem;
+      margin-bottom: 12px;
+    }
+    .subtitle {
+      font-size: 0.9rem;
+      padding: 0 10px;
+      line-height: 1.5;
+    }
+    .langBtn {
+      padding: 8px 20px;
+      font-size: 0.9rem;
+    }
+    .reviewForm .formControl {
+      font-size: 0.9rem;
+    }
+    .reviewForm .btnPrimary {
+      padding: 6px 12px;
+      font-size: 0.9rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .card {
+      height: 220px;
+    }
+    .cardBody {
+      padding: 18px;
+    }
+    .mainTitle {
+      font-size: 1.6rem;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      padding: 0 5px;
+    }
+    .langBtn {
+      padding: 7px 18px;
+      font-size: 0.85rem;
+    }
+    .reviewForm .formControl {
+      font-size: 0.85rem;
+    }
+    .reviewForm .btnPrimary {
+      padding: 5px 10px;
+      font-size: 0.85rem;
+    }
+  }
+  
+  @media (max-width: 360px) {
+    .testimonialsSection {
+      padding: 25px 0;
+    }
+    .card {
+      height: 200px;
+    }
+    .cardBody {
+      padding: 15px;
+    }
+    .mainTitle {
+      font-size: 1.4rem;
+    }
+    .subtitle {
+      font-size: 0.8rem;
+    }
+    .langBtn {
+      padding: 6px 15px;
+      font-size: 0.8rem;
+    }
+    .reviewForm .formControl {
+      font-size: 0.8rem;
+    }
+    .reviewForm .btnPrimary {
+      padding: 4px 8px;
+      font-size: 0.8rem;
+    }
+  }

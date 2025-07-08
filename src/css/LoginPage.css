@@ -1,0 +1,213 @@
+
+/*
+.login-page-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  
+  .login-card-container {
+    width: 100%;
+    padding: 20px;
+  }
+  
+  .login-card {
+    backdrop-filter: blur(10px);
+  }
+  
+  .form-control:focus {
+    border-color: #007BFF;
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+    background-color: rgba(255, 255, 255, 0.95);
+  }
+  
+  .form-select:focus {
+    border-color: #007BFF;
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+  }
+  
+  .login-overlay {
+    z-index: 1;
+  }
+  
+  .login-card-container {
+    z-index: 2;
+  }
+
+
+  */
+
+/*
+  .left-panel {
+    background-blend-mode: multiply;
+  }
+  
+  .feature-icon {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .left-panel h1 {
+    font-size: 2.5rem;
+    letter-spacing: -0.5px;
+  }
+  
+  .left-panel .lead {
+    font-size: 1.1rem;
+    line-height: 1.6;
+  }
+  
+  @media (max-width: 768px) {
+    .left-panel {
+      display: none !important;
+    }
+    
+    .login-card {
+      margin-top: 2rem;
+      box-shadow: none !important;
+      border: none !important;
+      background: transparent !important;
+    }
+  }
+  
+  @media (max-width: 576px) {
+    .login-card {
+      padding: 1.5rem !important;
+    }
+    
+    .left-panel h1 {
+      font-size: 2rem;
+    }
+  }
+.trust-badges .rounded-circle {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease;
+  }
+  
+  .trust-badges .rounded-circle:hover {
+    transform: translateY(-3px);
+  }
+  
+  .stats-section {
+    background: rgba(13, 110, 253, 0.05);
+    border: 1px solid rgba(13, 110, 253, 0.15);
+  }
+  
+  .btn-outline-primary {
+    transition: all 0.3s ease;
+  }
+  
+  .btn-outline-primary:hover {
+    background-color: #0d6efd;
+    color: white !important;
+  }
+  
+  .small-links {
+    font-size: 0.85rem;
+  }
+  
+  @media (max-width: 768px) {
+    .stats-section {
+      margin: 0 -1rem;
+    }
+    
+    .trust-badges .col-4 {
+      padding: 0 0.5rem;
+    }
+  }
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(-50px);
+    }
+  }
+  
+  .left-panel h1 {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  
+  .bg-opacity-10 {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .rounded-3 {
+    border-radius: 1rem !important;
+  }
+  
+  .list-unstyled li {
+    font-size: 1.1rem;
+    padding: 0.5rem 0;
+  }
+  
+  .fa-check-circle {
+    color: #90EE90;
+  }
+
+
+  */
+
+
+/* LoginPage.css */
+.left-panel {
+    background-blend-mode: multiply;
+  }
+  
+  .right-panel {
+    background: #f8f9fa;
+  }
+  
+  .login-card {
+    transition: all 0.3s ease;
+  }
+  
+  .login-card::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .login-card::-webkit-scrollbar-track {
+    background: rgba(13, 110, 253, 0.1);
+    border-radius: 10px;
+  }
+  
+  .login-card::-webkit-scrollbar-thumb {
+    background: #0d6efd;
+    border-radius: 10px;
+  }
+  
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .left-panel {
+      display: none !important;
+    }
+    
+    .right-panel {
+      padding: 1rem;
+    }
+    
+    .login-card {
+      max-height: none !important;
+      box-shadow: none !important;
+    }
+  }

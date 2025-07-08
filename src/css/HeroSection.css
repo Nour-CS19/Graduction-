@@ -1,0 +1,152 @@
+/* Main Container */
+.main-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Hero Section Styles */
+.hero-section {
+  padding: 8rem 2rem;
+  background: #f8f9fa;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  color: #2d3436;
+  margin-bottom: 1.5rem;
+  position: relative;
+  display: inline-block;
+  font-weight: 700;
+}
+
+.hero-title::after {
+  content: '';
+  position: absolute;
+  bottom: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 4px;
+  background: #00959C;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: #636e72;
+  max-width: 600px;
+  margin: 2rem auto;
+  line-height: 1.6;
+}
+
+/* Carousel Styles */
+.carousel-slide {
+  height: 70vh;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slide-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 2rem;
+}
+
+.slide-content h2 {
+  color: #fff;
+  font-size: 3.5rem;
+  font-weight: 700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  margin: 0;
+}
+
+/* Typed.js Styles */
+.typed-cursor {
+  font-size: 3.5rem;
+  color: #fff;
+  opacity: 1;
+  animation: blink 0.7s infinite;
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Gradient Overlay */
+.carousel-slide::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    to bottom right,
+    rgba(0, 149, 156, 0.3),
+    rgba(0, 149, 156, 0.1)
+  );
+}
+
+/* Responsive Design */
+@media (max-width: 992px) {
+  .hero-title {
+    font-size: 2.8rem;
+  }
+  
+  .slide-content h2 {
+    font-size: 2.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 6rem 1.5rem;
+  }
+  
+  .hero-title {
+    font-size: 2.2rem;
+  }
+  
+  .hero-subtitle {
+    font-size: 1.1rem;
+  }
+  
+  .slide-content h2 {
+    font-size: 2.2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 1.8rem;
+  }
+  
+  .hero-title::after {
+    bottom: -10px;
+    width: 60px;
+    height: 3px;
+  }
+  
+  .slide-content h2 {
+    font-size: 1.8rem;
+  }
+  
+  .typed-cursor {
+    font-size: 2rem;
+  }
+}

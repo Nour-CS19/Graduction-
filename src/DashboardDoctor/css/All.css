@@ -1,0 +1,108 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.sidebar {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+  border-right: 1px solid #e9ecef;
+}
+
+.sidebar-header {
+  background: #009DA5;
+  border-color: #007a80;
+}
+
+.sidebar-btn {
+  transition: all 0.3s ease;
+}
+
+.sidebar-btn.active {
+  background: linear-gradient(135deg, #009DA5 0%, #00b3bc 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(0, 157, 165, 0.3);
+}
+
+.sidebar-btn:hover:not(.active) {
+  background: #f8f9fa;
+  transform: translateX(3px);
+}
+
+.sidebar-sub-btn {
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.sidebar-sub-btn.active {
+  background: rgba(0, 157, 165, 0.1) !important;
+  color: #009DA5 !important;
+}
+
+.sidebar-dropdown {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.table thead th {
+  background: #f8f9fa;
+  color: #1a202c;
+  font-weight: 600;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.table tbody tr {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.table tbody tr:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+  border-radius: 0.5rem;
+}
+
+.dashboard-header {
+  background: linear-gradient(135deg, #009DA5 0%, #00b3bc 100%);
+  color: #ffffff;
+}
+
+.analytics-toggle-btn {
+  background: #009DA5 !important;
+  border-color: #009DA5 !important;
+  color: #ffffff !important;
+}
+
+.analytics-toggle-btn:hover {
+  background: #007a80 !important;
+  border-color: #007a80 !important;
+}
+
+.analytics-stat-card {
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+}
+
+.react-calendar {
+  width: 100% !important;
+  border: none !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+.react-calendar__tile--active {
+  background: #009DA5 !important;
+  color: white !important;
+}
+
+.calendar-highlight {
+  background: #009DA5 !important;
+  color: white !important;
+  border-radius: 50% !important;
+}

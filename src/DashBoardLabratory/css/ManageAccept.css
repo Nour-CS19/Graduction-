@@ -1,0 +1,30 @@
+/* ManageAccept.css */
+.action-buttons .btn {
+  margin-right: 5px;
+}
+.table th, .table td {
+  vertical-align: middle;
+}
+.badge {
+  font-size: 0.9em;
+  padding: 0.5em 1em;
+}
+.alert {
+  max-width: 600px;
+  margin: 0 auto 1rem;
+}
+.modal-body table th {
+  width: 30%;
+  font-weight: 600;
+}
+.modal-body img {
+  max-width: 100%;
+  height: auto;
+}
+.card-header {
+  font-size: 1.25rem;
+}
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+}

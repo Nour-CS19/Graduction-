@@ -1,0 +1,166 @@
+.booking-system {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.booking-card {
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.step-container {
+  padding: 2rem;
+}
+
+.step-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.step-description {
+  font-size: 1.1rem;
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+.specialization-card, .city-card, .doctor-card, .clinic-card, .appointment-card, .patient-form-card {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.specialization-card:hover, .city-card:hover, .doctor-card:hover, .clinic-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.selected {
+  border: 2px solid #007bff !important;
+  background-color: rgba(0, 123, 255, 0.05);
+}
+
+.select-button {
+  width: 100%;
+  font-weight: 600;
+}
+
+.navigation-buttons {
+  margin-top: 2rem;
+}
+
+.left-aligned-button, .right-aligned-button {
+  font-size: 1rem;
+  padding: 0.75rem 1.5rem;
+}
+
+.booking-progress-container {
+  padding: 1rem 0;
+}
+
+.booking-progress {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 20%;
+  position: relative;
+  z-index: 1;
+}
+
+.progress-step .step-icon {
+  width: 50px;
+  height: 50px;
+  background-color: #e9ecef;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.5rem;
+  color: #666;
+  transition: all 0.3s ease;
+}
+
+.progress-step .step-label {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #666;
+}
+
+.progress-step.active .step-icon {
+  background-color: #007bff;
+  color: #fff;
+}
+
+.progress-step.completed .step-icon {
+  background-color: #28a745;
+  color: #fff;
+}
+
+.progress-step.completed .step-label {
+  color: #28a745;
+}
+
+.success-container {
+  padding: 4rem;
+}
+
+.success-icon {
+  color: #28a745;
+}
+
+.booked-appointments {
+  margin-top: 2rem;
+}
+
+.booked-appointments table {
+  font-size: 0.9rem;
+}
+
+.clinic-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 80px;
+  width: 100%;
+}
+
+.clinic-card .card-title {
+  text-align: center;
+}
+
+.doctor-image-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.doctor-image-container .bi-person-circle {
+  font-size: 4rem;
+  color: #6c757d;
+}
+
+@media (max-width: 768px) {
+  .booking-progress {
+    flex-direction: column;
+  }
+  .progress-step {
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+  .step-title {
+    font-size: 1.5rem;
+  }
+  .step-description {
+    font-size: 1rem;
+  }
+  .clinic-icon {
+    height: 60px;
+  }
+}

@@ -1,0 +1,949 @@
+import React, { useState } from 'react';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './Lab.css';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
+const LaboratoryDashboard = () => {
+  // State management
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [patients, setPatients] = useState([
+    {
+      id: 1,
+      name: 'John Doe',
+      age: 45,
+      email: 'john@example.com',
+      tests: ['Blood Test', 'Urine Analysis'],
+      results: { 'Blood Test': 'Normal', 'Urine Analysis': 'Pending' }
+    },
+    {
+      id: 2,
+      name: 'Jane Smith',
+      age: 32,
+      email: 'jane@example.com',
+      tests: ['Cholesterol', 'Glucose'],
+      results: { 'Cholesterol': 'High', 'Glucose': 'Normal' }
+    }
+  ]);
+  
+  // New state for appointments
+  const [appointments, setAppointments] = useState([
+    {
+      id: 1,
+      patientName: 'John Doe',
+      date: '2025-04-15',
+      time: '10:00 AM',
+      test: 'Blood Test',
+      status: 'Confirmed'
+    },
+    {
+      id: 2,
+      patientName: 'Jane Smith', 
+      date: '2025-04-16',
+      time: '02:30 PM',
+      test: 'Urine Analysis',
+      status: 'Pending'
+    }
+  ]);
+
+  const [newAppointment, setNewAppointment] = useState({
+    patientName: '',
+    date: '',
+    time: '',
+    test: '',
+    status: 'Pending'
+  });
+
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [reportData, setReportData] = useState({ content: '', patientId: null });
+  const [profileData, setProfileData] = useState({
+    labName: 'PhysioCare',
+    address: '123 Medical Plaza, Suite 400',
+    phone: '(555) 123-4567',
+    email: 'contact@physiocare.com',
+    license: 'LIC-12345-XYZ'
+  });
+  const [chatMessages, setChatMessages] = useState({});
+  const [testResults, setTestResults] = useState([
+    {
+      id: 1,
+      patientId: 1,
+      test: 'Blood Test',
+      result: 'Normal',
+      date: '2025-03-15',
+      reference: '4.5-6.0 mmol/L'
+    },
+    {
+      id: 2,
+      patientId: 1,
+      test: 'Urine Analysis',
+      result: 'Pending',
+      date: '2025-03-15',
+      reference: 'N/A'
+    },
+    {
+      id: 3,
+      patientId: 2,
+      test: 'Cholesterol',
+      result: 'High',
+      date: '2025-03-14',
+      reference: '< 5.2 mmol/L'
+    },
+    {
+      id: 4,
+      patientId: 2,
+      test: 'Glucose',
+      result: 'Normal',
+      date: '2025-03-14',
+      reference: '3.9-5.5 mmol/L'
+    }
+  ]);
+  const [newTest, setNewTest] = useState({ patientId: '', test: '', result: '', reference: '' });
+  const [analyses, setAnalyses] = useState([]);
+  const [newAnalysis, setNewAnalysis] = useState({ name: '', price: '', details: '' });
+
+  // Appointment Handlers
+  const handleAddAppointment = (e) => {
+    e.preventDefault();
+    if (!newAppointment.patientName || !newAppointment.date || !newAppointment.time || !newAppointment.test) {
+      alert('Please fill in all required fields');
+      return;
+    }
+    
+    const appointmentToAdd = {
+      ...newAppointment,
+      id: appointments.length + 1
+    };
+
+    setAppointments([...appointments, appointmentToAdd]);
+    setNewAppointment({
+      patientName: '',
+      date: '',
+      time: '',
+      test: '',
+      status: 'Pending'
+    });
+    alert('Appointment added successfully!');
+  };
+
+  const handleDeleteAppointment = (id) => {
+    setAppointments(appointments.filter(appointment => appointment.id !== id));
+  };
+
+  const handleUpdateAppointmentStatus = (id, newStatus) => {
+    setAppointments(
+      appointments.map(appointment => 
+        appointment.id === id 
+          ? { ...appointment, status: newStatus } 
+          : appointment
+      )
+    );
+  };
+
+  // Handler functions
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSelectedPatient(null);
+  };
+
+  const handleSelectPatient = (patient) => {
+    setSelectedPatient(patient);
+    if (!chatMessages[patient.id]) {
+      setChatMessages({ ...chatMessages, [patient.id]: [] });
+    }
+  };
+
+  const handleSendMessage = () => {
+    if (!messageInput.trim() || !selectedPatient) return;
+    const newMessages = {
+      ...chatMessages,
+      [selectedPatient.id]: [
+        ...chatMessages[selectedPatient.id],
+        { sender: 'lab', content: messageInput, timestamp: new Date().toLocaleTimeString() }
+      ]
+    };
+    setChatMessages(newMessages);
+    setMessageInput('');
+  };
+
+  const handlePrepareReport = (patient) => {
+    setReportData({
+      patientId: patient.id,
+      content: `
+Medical Laboratory Report
+------------------------
+Patient: ${patient.name}
+Date: ${new Date().toLocaleDateString()}
+
+Test Results:
+${testResults
+  .filter(result => result.patientId === patient.id)
+  .map(result => `- ${result.test}: ${result.result} (Reference: ${result.reference})`)
+  .join('\n')}
+
+Analysis:
+The patient's test results indicate...
+
+Recommendations:
+Based on these results, we recommend...
+
+Report generated by PhysioCare
+      `
+    });
+    setActiveTab('reports');
+  };
+
+  const handleSendReport = () => {
+    alert(`Report sent to patient (${patients.find(p => p.id === reportData.patientId).email})`);
+    setReportData({ content: '', patientId: null });
+  };
+
+  const handleUpdateProfile = (e) => {
+    e.preventDefault();
+    alert('Profile updated successfully!');
+  };
+
+  const handleAddTestResult = (e) => {
+    e.preventDefault();
+    if (!newTest.patientId || !newTest.test || !newTest.result) {
+      alert('Please fill in all required fields');
+      return;
+    }
+    const newResultId = testResults.length + 1;
+    setTestResults([
+      ...testResults,
+      {
+        id: newResultId,
+        patientId: parseInt(newTest.patientId),
+        test: newTest.test,
+        result: newTest.result,
+        date: new Date().toISOString().split('T')[0],
+        reference: newTest.reference || 'N/A'
+      }
+    ]);
+    setNewTest({ patientId: '', test: '', result: '', reference: '' });
+    alert('Test result added successfully!');
+  };
+
+  const handleSignOut = () => {
+    alert('Signing out...');
+  };
+
+  const handleAddAnalysis = (e) => {
+    e.preventDefault();
+    setAnalyses([...analyses, { ...newAnalysis }]);
+    setNewAnalysis({ name: '', price: '', details: '' });
+  };
+
+  const handleDeleteAnalysis = (index) => {
+    setAnalyses(analyses.filter((_, i) => i !== index));
+  };
+
+  const handleGeneratePDF = () => {
+    const reportElement = document.getElementById('reportContent');
+    if (reportElement) {
+      html2canvas(reportElement, { scale: 2 }).then((canvas) => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgProps = pdf.getImageProperties(imgData);
+        const imgWidth = pdfWidth;
+        const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+
+        let heightLeft = imgHeight;
+        let position = 0;
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+        while (heightLeft > 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pdfHeight;
+        }
+        pdf.setFontSize(12);
+        pdf.text("Signature: __________________________", 10, pdfHeight - 20);
+        pdf.save('report.pdf');
+      });
+    }
+  };
+
+  // Component Views
+  const TopNavbar = () => (
+    <nav className="physiocare-dashboard-navbar">
+      <div className="navbar-content">
+        <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          ☰
+        </button>
+        <a className="navbar-brand" href="#">
+          PhysioCare
+        </a>
+        <div className="profile-menu">
+          <div className="dropdown">
+            <a className="dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              {profileData.email}
+            </a>
+            <ul className="dropdown-menu dropdown-menu-end">
+              <li>
+                <a className="dropdown-item" href="#" onClick={() => setActiveTab('profile')}>
+                  Profile
+                </a>
+              </li>
+              <li>
+                <hr className="dropdown-divider" />
+              </li>
+              <li>
+                <a className="dropdown-item" href="#" onClick={handleSignOut}>
+                  Sign Out
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+
+  const Sidebar = () => (
+    <aside className={`physiocare-dashboard-sidebar ${sidebarOpen ? '' : 'collapsed'}`}>
+      <div className="sidebar-title">Menu</div>
+      <ul className="nav flex-column">
+        <li className="nav-item">
+          <a 
+            className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`} 
+            href="#" 
+            onClick={() => handleTabChange('dashboard')}
+          >
+            Dashboard
+          </a>
+        </li>
+        <li className="nav-item">
+          <a 
+            className={`nav-link ${activeTab === 'patients' ? 'active' : ''}`} 
+            href="#" 
+            onClick={() => handleTabChange('patients')}
+          >
+            Patients
+          </a>
+        </li>
+        <li className="nav-item">
+          <a 
+            className={`nav-link ${activeTab === 'appointments' ? 'active' : ''}`} 
+            href="#" 
+            onClick={() => handleTabChange('appointments')}
+          >
+            Appointments
+          </a>
+        </li>
+        <li className="nav-item">
+          <a 
+            className={`nav-link ${activeTab === 'chat' ? 'active' : ''}`} 
+            href="#" 
+            onClick={() => handleTabChange('chat')}
+          >
+            Chat
+          </a>
+        </li>
+        <li className="nav-item">
+          <a 
+            className={`nav-link ${activeTab === 'reports' ? 'active' : ''}`} 
+            href="#" 
+            onClick={() => handleTabChange('reports')}
+          >
+            Reports
+          </a>
+        </li>
+        <li className="nav-item">
+          <a 
+            className={`nav-link ${activeTab === 'analysis' ? 'active' : ''}`} 
+            href="#" 
+            onClick={() => handleTabChange('analysis')}
+          >
+            Analysis
+          </a>
+        </li>
+      </ul>
+    </aside>
+  );
+
+  // Appointment View
+  const AppointmentsView = () => (
+    <div className="container-fluid">
+      <h2>Appointment Management</h2>
+      <div className="row mt-4">
+        <div className="col-md-6">
+          <div className="card">
+            <div className="card-header">Schedule New Appointment</div>
+            <div className="card-body">
+              <form onSubmit={handleAddAppointment}>
+                <div className="mb-3">
+                  <label className="form-label">Patient Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={newAppointment.patientName}
+                    onChange={(e) => setNewAppointment({...newAppointment, patientName: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Date</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={newAppointment.date}
+                    onChange={(e) => setNewAppointment({...newAppointment, date: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Time</label>
+                  <input
+                    type="time"
+                    className="form-control"
+                    value={newAppointment.time}
+                    onChange={(e) => setNewAppointment({...newAppointment, time: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Test Type</label>
+                  <select
+                    className="form-control"
+                    value={newAppointment.test}
+                    onChange={(e) => setNewAppointment({...newAppointment, test: e.target.value})}
+                    required
+                  >
+                    <option value="">Select Test</option>
+                    <option value="Blood Test">Blood Test</option>
+                    <option value="Urine Analysis">Urine Analysis</option>
+                    <option value="Cholesterol">Cholesterol</option>
+                    <option value="Glucose">Glucose</option>
+                  </select>
+                </div>
+                <button type="submit" className="btn btn-success">
+                  Schedule Appointment
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div className="card">
+            <div className="card-header">Upcoming Appointments</div>
+            <div className="card-body">
+              {appointments.length === 0 ? (
+                <div className="alert alert-info">No appointments scheduled</div>
+              ) : (
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Patient</th>
+                      <th>Date & Time</th>
+                      <th>Test</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {appointments.map(appointment => (
+                      <tr key={appointment.id}>
+                        <td>{appointment.patientName}</td>
+                        <td>{appointment.date} {appointment.time}</td>
+                        <td>{appointment.test}</td>
+                        <td>
+                          <span 
+                            className={`badge ${
+                              appointment.status === 'Confirmed' 
+                                ? 'bg-success' 
+                                : appointment.status === 'Pending' 
+                                ? 'bg-warning' 
+                                : 'bg-danger'
+                            }`}
+                          >
+                            {appointment.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="btn-group btn-group-sm">
+                            <button 
+                              className="btn btn-success" 
+                              onClick={() => handleUpdateAppointmentStatus(appointment.id, 'Confirmed')}
+                            >
+                              Confirm
+                            </button>
+                            <button 
+                              className="btn btn-danger" 
+                              onClick={() => handleDeleteAppointment(appointment.id)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  
+  const AnalysisView = () => (
+    <div className="container-fluid">
+      <h2>Analysis Management</h2>
+      <div className="row mt-4">
+        <div className="col-md-6">
+          <form onSubmit={handleAddAnalysis}>
+            <div className="mb-3">
+              <label className="form-label">Analysis Name</label>
+              <input
+                type="text"
+                className="form-control"
+                value={newAnalysis.name}
+                onChange={(e) => setNewAnalysis({ ...newAnalysis, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Price</label>
+              <input
+                type="number"
+                className="form-control"
+                value={newAnalysis.price}
+                onChange={(e) => setNewAnalysis({ ...newAnalysis, price: e.target.value })}
+                required
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Details</label>
+              <textarea
+                className="form-control"
+                rows="3"
+                value={newAnalysis.details}
+                onChange={(e) => setNewAnalysis({ ...newAnalysis, details: e.target.value })}
+                required
+              ></textarea>
+            </div>
+            <button type="submit" className="btn btn-success">
+              Add Analysis
+            </button>
+          </form>
+        </div>
+      </div>
+      <div className="row mt-4">
+        <div className="col-md-12">
+          <h3>Existing Analyses</h3>
+          {analyses.length === 0 ? (
+            <div>No analyses added.</div>
+          ) : (
+            <table className="table table-striped">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Price</th>
+                  <th>Details</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analyses.map((analysis, index) => (
+                  <tr key={index}>
+                    <td>{analysis.name}</td>
+                    <td>{analysis.price}</td>
+                    <td>{analysis.details}</td>
+                    <td>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDeleteAnalysis(index)}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  
+  const DashboardView = () => (
+    <div className="container-fluid">
+      <h2>Laboratory Dashboard</h2>
+      <div className="row mt-4">
+        <div className="col-md-4">
+          <div className="card bg-primary text-white mb-4">
+            <div className="card-body">
+              <h5 className="card-title">Total Patients</h5>
+              <h2>{patients.length}</h2>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-4">
+          <div className="card bg-success text-white mb-4">
+            <div className="card-body">
+              <h5 className="card-title">Tests Performed</h5>
+              <h2>{testResults.length}</h2>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-4">
+          <div className="card bg-warning text-dark mb-4">
+            <div className="card-body">
+              <h5 className="card-title">Pending Results</h5>
+              <h2>{testResults.filter(test => test.result === 'Pending').length}</h2>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const PatientsView = () => (
+    <div className="container-fluid">
+      <h2>Patient Management</h2>
+      <div className="row mt-4">
+        <div className="col-md-4">
+          <div className="card">
+            <div className="card-header">
+              <h5>Patient List</h5>
+            </div>
+            <div className="card-body">
+              <div className="list-group">
+                {patients.map(patient => (
+                  <button
+                    key={patient.id}
+                    className={`list-group-item list-group-item-action ${selectedPatient?.id === patient.id ? 'active' : ''}`}
+                    onClick={() => handleSelectPatient(patient)}
+                  >
+                    {patient.name} - {patient.age} years
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-8">
+          {selectedPatient ? (
+            <div className="card">
+              <div className="card-header d-flex justify-content-between align-items-center">
+                <h5>Patient Details</h5>
+                <div>
+                  <button className="btn btn-sm btn-primary me-2" onClick={() => handlePrepareReport(selectedPatient)}>
+                    Generate Report
+                  </button>
+                  <button className="btn btn-sm btn-success" onClick={() => setActiveTab('chat')}>
+                    Chat with Patient
+                  </button>
+                </div>
+              </div>
+              <div className="card-body">
+                <h5>{selectedPatient.name}</h5>
+                <p>
+                  <strong>Age:</strong> {selectedPatient.age}
+                </p>
+                <p>
+                  <strong>Email:</strong> {selectedPatient.email}
+                </p>
+                <h6 className="mt-4">Test Results</h6>
+                <table className="table table-striped table-sm">
+                  <thead>
+                    <tr>
+                      <th>Test</th>
+                      <th>Result</th>
+                      <th>Date</th>
+                      <th>Reference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {testResults
+                      .filter(result => result.patientId === selectedPatient.id)
+                      .map(result => (
+                        <tr key={result.id}>
+                          <td>{result.test}</td>
+                          <td>
+                            <span
+                              className={`badge ${
+                                result.result === 'Normal'
+                                  ? 'bg-success'
+                                  : result.result === 'Pending'
+                                  ? 'bg-warning'
+                                  : 'bg-danger'
+                              }`}
+                            >
+                              {result.result}
+                            </span>
+                          </td>
+                          <td>{result.date}</td>
+                          <td>{result.reference}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="alert alert-info">Select a patient to view details</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ChatView = () => (
+    <div className="container-fluid">
+      <h2>Patient Communication</h2>
+      <div className="row mt-4">
+        <div className="col-md-4">
+          <div className="card">
+            <div className="card-header">
+              <h5>Patient List</h5>
+            </div>
+            <div className="card-body">
+              <div className="list-group">
+                {patients.map(patient => (
+                  <button
+                    key={patient.id}
+                    className={`list-group-item list-group-item-action ${selectedPatient?.id === patient.id ? 'active' : ''}`}
+                    onClick={() => handleSelectPatient(patient)}
+                  >
+                    {patient.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-8">
+          {selectedPatient ? (
+            <div className="card">
+              <div className="card-header">
+                <h5>Chat with {selectedPatient.name}</h5>
+              </div>
+              <div className="card-body">
+                <div className="chat-container" style={{ height: '300px', overflowY: 'auto', marginBottom: '15px' }}>
+                  {chatMessages[selectedPatient.id]?.length ? (
+                    chatMessages[selectedPatient.id].map((msg, idx) => (
+                      <div key={idx} className={`d-flex ${msg.sender === 'lab' ? 'justify-content-end' : ''} mb-2`}>
+                        <div className={`chat-message p-2 rounded ${msg.sender === 'lab' ? 'bg-primary text-white' : 'bg-light'}`} style={{ maxWidth: '70%' }}>
+                          <div>{msg.content}</div>
+                          <small className="text-muted">{msg.timestamp}</small>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center text-muted pt-5">No messages yet</div>
+                  )}
+                </div>
+                <div className="input-group">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Type your message..."
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                  />
+                  <button className="btn btn-primary" onClick={handleSendMessage}>
+                    Send
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="alert alert-info">Select a patient to start chatting</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ReportsView = () => (
+    <div className="container-fluid">
+      <h2>Patient Reports</h2>
+      <div className="row mt-4">
+        <div className="col-md-12">
+          <div className="card">
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <h5>Report Editor</h5>
+              {reportData.patientId && (
+                <div>
+                  <button className="btn btn-primary me-2" onClick={handleGeneratePDF}>
+                    Generate PDF
+                  </button>
+                  <button className="btn btn-success" onClick={handleSendReport}>
+                    Send to Patient
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="card-body">
+              {reportData.patientId ? (
+                <>
+                  <label>Edit Report Content:</label>
+                  <textarea
+                    className="form-control mb-3"
+                    rows="10"
+                    value={reportData.content}
+                    onChange={(e) =>
+                      setReportData({ ...reportData, content: e.target.value })
+                    }
+                  />
+                  <div
+                    id="reportContent"
+                    style={{
+                      width: '550px',
+                      whiteSpace: 'pre-wrap',
+                      wordWrap: 'break-word',
+                      border: '1px solid #ccc',
+                      padding: '10px',
+                      marginTop: '20px'
+                    }}
+                  >
+                    <h5>Patient: {patients.find(p => p.id === reportData.patientId)?.name}</h5>
+                    {reportData.content}
+                  </div>
+                </>
+              ) : (
+                <div className="alert alert-info">
+                  Select a patient from the Patients tab and click "Generate Report" to create a new report
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Updated ProfileView with debugging and common change handler
+  const ProfileView = () => {
+    const handleInputChange = (e) => {
+      const { name, value } = e.target;
+      console.log(`Field: ${name}, Value: ${value}`); // Debug log
+      setProfileData((prev) => ({
+        ...prev,
+        [name]: value
+      }));
+    };
+
+    return (
+      <div className="container-fluid">
+        <h2>Laboratory Profile</h2>
+        <div className="row mt-4">
+          <div className="col-md-8">
+            <div className="card">
+              <div className="card-header">
+                <h5>Edit Profile</h5>
+              </div>
+              <div className="card-body">
+                <form onSubmit={handleUpdateProfile}>
+                  <div className="mb-3">
+                    <label className="form-label">Laboratory Name</label>
+                    <input
+                      type="text"
+                      name="labName"
+                      className="form-control"
+                      value={profileData.labName}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Address</label>
+                    <input
+                      type="text"
+                      name="address"
+                      className="form-control"
+                      value={profileData.address}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Phone</label>
+                    <input
+                      type="text"
+                      name="phone"
+                      className="form-control"
+                      value={profileData.phone}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      className="form-control"
+                      value={profileData.email}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">License Number</label>
+                    <input
+                      type="text"
+                      name="license"
+                      className="form-control"
+                      value={profileData.license}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <button type="submit" className="btn btn-primary">
+                    Update Profile
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-4">
+            <div className="card">
+              <div className="card-header">
+                <h5>Current Profile</h5>
+              </div>
+              <div className="card-body">
+                <h4>{profileData.labName}</h4>
+                <p>
+                  <strong>Address:</strong> {profileData.address}
+                </p>
+                <p>
+                  <strong>Phone:</strong> {profileData.phone}
+                </p>
+                <p>
+                  <strong>Email:</strong> {profileData.email}
+                </p>
+                <p>
+                  <strong>License:</strong> {profileData.license}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="physiocare-dashboard">
+      <TopNavbar />
+      <div className="dashboard-body">
+        <Sidebar />
+        <div className="physiocare-dashboard-content p-4">
+          {activeTab === 'dashboard' && <DashboardView />}
+          {activeTab === 'patients' && <PatientsView />}
+          {activeTab === 'chat' && <ChatView />}
+          {activeTab === 'reports' && <ReportsView />}
+          {activeTab === 'analysis' && <AnalysisView />}
+          {activeTab === 'profile' && <ProfileView />}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default LaboratoryDashboard;

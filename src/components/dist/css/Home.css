@@ -1,0 +1,295 @@
+/* Animations */
+@keyframes float {
+    0% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-15px);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  
+  @keyframes glow {
+    0% {
+      box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3);
+    }
+    50% {
+      box-shadow: 0 6px 25px rgba(13, 110, 253, 0.5);
+    }
+    100% {
+      box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3);
+    }
+  }
+  
+  /* Hero Section */
+  .hero-heading {
+    position: relative;
+    display: inline-block;
+    font-size: 2.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #252627;
+  }
+  
+  .phones-container {
+    position: relative;
+    width: 100%;
+    height: 450px;
+    display: flex;
+    justify-content: center;
+  }
+  
+  .phone {
+    position: absolute;
+    object-fit: contain;
+    filter: drop-shadow(0px 10px 20px rgba(0, 0, 0, 0.15));
+    transition: transform 0.3s ease;
+  }
+  
+  .phone-left {
+    height: 70%;
+    left: 10%;
+    bottom: 0;
+    transform: rotate(-5deg);
+    z-index: 1;
+    animation: float 7s ease-in-out infinite;
+  }
+  
+  .phone-center {
+    height: 90%;
+    left: 35%;
+    bottom: 0;
+    z-index: 3;
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .phone-right {
+    height: 70%;
+    right: 5%;
+    bottom: 0;
+    transform: rotate(5deg);
+    z-index: 2;
+    animation: float 8s ease-in-out infinite;
+  }
+  
+  /* Buttons */
+  .pill-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    min-width: 150px;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+  
+  .about-button {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  
+  .about-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
+  }
+  
+  .appointment-button {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    animation: glow 3s ease-in-out infinite;
+  }
+  
+  .appointment-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+  }
+  
+  .buttons-container {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 2rem;
+  }
+  
+  /* Healthcare Finder Styles */
+  .bg-teal {
+    background-color: #20b2aa !important;
+  }
+  
+  .text-teal {
+    color: #20b2aa !important;
+  }
+  
+  .btn-teal {
+    background-color: #20b2aa;
+    border-color: #20b2aa;
+    color: white;
+  }
+  
+  .btn-teal:hover {
+    background-color: #1a9999;
+    border-color: #1a9999;
+    color: white;
+  }
+  
+  .rounded-4 {
+    border-radius: 1.5rem !important;
+  }
+  
+  .rounded-5 {
+    border-radius: 2rem !important;
+  }
+  
+  .custom-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 16px 12px;
+  }
+  
+  .search-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  }
+  
+  .icon-blue {
+    color: #0d6efd;
+  }
+  
+  .icon-teal {
+    color: #20b2aa;
+  }
+  
+  /* Updated tab styles to preserve original colors */
+  .tab-active {
+    border: 2px solid #20b2aa; /* Visual indicator without changing background */
+    background-color: transparent !important; /* Preserve original background */
+  }
+  
+  .tab-inactive {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+  }
+  
+  .tab-clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .tab-clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .healthcare-finder-section {
+    scroll-margin-top: 80px;
+  }
+  
+  .tab-main-text {
+    font-weight: bold;
+    color: #333; /* Default text color, matching inactive state */
+  }
+  
+  .tab-description {
+    color: #6c757d; /* Default muted text color */
+  }
+  
+  .tab-active .tab-main-text,
+  .tab-active .tab-description {
+    color: #333; /* Ensure text color remains unchanged */
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 992px) {
+    .phones-container {
+      margin-top: 2rem;
+      height: 350px;
+    }
+  
+    .phone-center {
+      left: 30%;
+    }
+  
+    .hero-heading {
+      font-size: 2rem;
+    }
+  
+    .buttons-container {
+      justify-content: center;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .phones-container {
+      height: 300px;
+    }
+  
+    .phone-left {
+      left: 5%;
+    }
+  
+    .phone-center {
+      left: 25%;
+    }
+  
+    .hero-heading {
+      font-size: 1.75rem;
+      text-align: center;
+    }
+  
+    .buttons矛盾-container {
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+  
+    .pill-button {
+      width: 100%;
+      max-width: 250px;
+    }
+  
+    .text-column {
+      text-align: center;
+    }
+  }
+  
+  @media (max-width: 576px) {
+    .hero-heading {
+      font-size: 1.5rem;
+    }
+  
+    .pill-button {
+      font-size: 1rem;
+      padding: 10px 20px;
+      min-width: 120px;
+    }
+  
+    .phones-container {
+      height: 250px;
+    }
+  }

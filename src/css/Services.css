@@ -1,0 +1,22 @@
+/* src/css/Services.css */
+
+.services {
+  margin-top: 2rem;
+}
+
+.services h1 {
+  font-weight: 700;
+}
+
+.card {
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.card img {
+  max-height: 200px;
+  object-fit: cover;
+}
+
+.me-2 {
+  margin-right: 0.5rem !important;
+}
