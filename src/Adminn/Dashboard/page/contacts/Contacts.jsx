@@ -1,7 +1,7 @@
 import React from "react";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { Box } from "@mui/material";
-import { columns, rows } from "C:/Users/NOUR SOFT/Desktop/Graduction Final/First/src/Adminn/Dashboard/page/contacts/data.js";
+import { columns, rows } from "./data.js";
 
 const Contacts = () => {
   return (
