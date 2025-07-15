@@ -1,9 +1,8 @@
-
 {
   "name": "first",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://Nour-CS19.github.io/PhysioCare-Project/",
+  "homepage": "https://Nour-CS19.github.io/Graduction",
   "dependencies": {
     "@babel/preset-env": "^7.26.9",
     "@babel/preset-react": "^7.26.3",
@@ -36,7 +35,7 @@
     "@popperjs/core": "^2.11.8",
     "@react-google-maps/api": "^2.20.6",
     "@react-leaflet/core": "^3.0.0",
-    "@react spring/web": "^9.7.5",
+    "@react-spring/web": "^9.7.5",
     "@reduxjs/toolkit": "^2.6.1",
     "@shadcn/ui": "^0.0.4",
     "@testing-library/jest-dom": "^6.6.3",
