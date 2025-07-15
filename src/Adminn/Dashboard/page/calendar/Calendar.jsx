@@ -7,7 +7,7 @@ import { Paper, Stack, Box, Typography } from "@mui/material";
 import { formatDate } from "@fullcalendar/core";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import "C:/Users/NOUR SOFT/Desktop/Graduction Final/First/src/Adminn/Dashboard/page/calendar/calendar.css";
+import "./calendar.css";
 
 function renderEventContent(eventInfo) {
   return (
