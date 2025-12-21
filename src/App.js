@@ -1,12 +1,13 @@
 import React, { lazy, Suspense } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./Pages/AuthPage";
 import ErrorBoundary from "./ErrorBoundary";
 import VerifyOTPPage from './Pages/VerifyOTPPage';
-import NurseDashboardLayout from './DashBoardNurse/DashBoardNurse'; // Adjust path as per your structure
+import NurseDashboardLayout from './DashBoardNurse/DashBoardNurse';
+
+// Lazy-loaded components
 const ResetPasswordForPatient = lazy(() => import("./components/ResetPasswordForPatient").catch(() => ({ default: () => <div>Reset password</div> })));
-const MedicalRecordsForPatient= lazy(() => import("./components/MedicalRecoredsForPatient").catch(() => ({ default: () => <div>MedicalRecoredsForPatient failed to load</div> })));
-// Public Pages
+const MedicalRecordsForPatient = lazy(() => import("./components/MedicalRecoredsForPatient").catch(() => ({ default: () => <div>MedicalRecoredsForPatient failed to load</div> })));
 const PasswordResetComponent = lazy(() => import("./components/PasswordResetComponent").catch(() => ({ default: () => <div>Reset password</div> })));
 const HomePage = lazy(() => import("./Pages/HomePage").catch(() => ({ default: () => <div>HomePage failed to load</div> })));
 const Login = lazy(() => import("./Pages/LoginPage").catch(() => ({ default: () => <div>LoginPage failed to load</div> })));
@@ -15,12 +16,7 @@ const ProfilePage = lazy(() => import("./Pages/ProfilePage").catch(() => ({ defa
 const HeroSection = lazy(() => import("./components/HeroSection").catch(() => ({ default: () => <div>HeroSection failed to load</div> })));
 const ForgotPasswordPage = lazy(() => import("./Pages/ForgotPasswordPage").catch(() => ({ default: () => <div>ForgotPasswordPage failed to load</div> })));
 const SuccessPage = lazy(() => import("./Pages/Success").catch(() => ({ default: () => <div>Success failed to load</div> })));
-const ResetPassword = lazy(() => import("./components/PasswordResetComponent").catch(() => ({ default: () => <div>Reset password</div> })));
-
-// AboutUs Component
 const AboutUs = lazy(() => import("./components/AboutUsVersion").catch(() => ({ default: () => <div>About Us Component</div> })));
-
-// Service Components
 const DoctorAppointment = lazy(() => import("./ServicesConsultantions/AppointmentPage").catch(() => ({ default: () => <div>AppointmentPage failed to load</div> })));
 const AppointmentsList = lazy(() => import("./ServicesConsultantions/AppointmentList").catch(() => ({ default: () => <div>AppointmentList failed to load</div> })));
 const DoctorPayment = lazy(() => import("./ServicesConsultantions/PaymentPage").catch(() => ({ default: () => <div>PaymentPage failed to load</div> })));
@@ -29,8 +25,6 @@ const DoctorASService = lazy(() => import("./ServicesConsultantions/DoctorServic
 const AtHomeConsultantion = lazy(() => import("./ServicesConsultantions/AtHomeConsultantion").catch(() => ({ default: () => <div>AtHomeConsultantion failed to load</div> })));
 const OfflineConsultantion = lazy(() => import("./ServicesConsultantions/OfflineConsultantion").catch(() => ({ default: () => <div>OfflineConsultantion failed to load</div> })));
 const NurseDashboardHome = lazy(() => import("./DashBoardNurse/DashboardNurseHome"));
-
-// Other Components
 const VideosAdvices = lazy(() => import("./components/VideosAdvices").catch(() => ({ default: () => <div>VideosAdvices failed to load</div> })));
 const Profile = lazy(() => import("./components/Profile").catch(() => ({ default: () => <div>Profile failed to load</div> })));
 const ServiceContactUs = lazy(() => import("./components/ContactusService").catch(() => ({ default: () => <div>ContactusService failed to load</div> })));
@@ -49,8 +43,6 @@ const NavPublic = lazy(() => import("./components/Nav").catch(() => ({ default: 
 const Maps = lazy(() => import("./components/Maps").catch(() => ({ default: () => <div>Maps failed to load</div> })));
 const AskedPage = lazy(() => import("./components/AskedFeedBack").catch(() => ({ default: () => <div>AskedFeedBack failed to load</div> })));
 const Paginations = lazy(() => import("./components/Paginations").catch(() => ({ default: () => <div>Paginations failed to load</div> })));
-
-// Doctor Dashboard Components
 const AcceptReject = lazy(() => import("./DASHBOARD DOCTOR/AcceptReject").catch(() => ({ default: () => <div>AcceptReject failed to load</div> })));
 const AppointmentAtHome = lazy(() => import("./DASHBOARD DOCTOR/AppointmentAtHome").catch(() => ({ default: () => <div>AppointmentAtHome failed to load</div> })));
 const AppointmentsOnline = lazy(() => import("./DASHBOARD DOCTOR/AppointmentsOnline").catch(() => ({ default: () => <div>AppointmentsOnline failed to load</div> })));
@@ -60,8 +52,6 @@ const FetchAll = lazy(() => import("./DASHBOARD DOCTOR/FetchAll").catch(() => ({
 const FetchAllAtClinic = lazy(() => import("./DASHBOARD DOCTOR/FetchAllAtClinic").catch(() => ({ default: () => <div>FetchAllAtClinic failed to load</div> })));
 const FetchAllAtOnline = lazy(() => import("./DASHBOARD DOCTOR/FetchAllAtOnline").catch(() => ({ default: () => <div>FetchAllAtOnline failed to load</div> })));
 const AppointmentAtClinic = lazy(() => import("./DASHBOARD DOCTOR/AppointmentAtClinics").catch(() => ({ default: () => <div>AppointmentAtClinics failed to load</div> })));
-
-// Laboratory Dashboard Components
 const ServicesLab = lazy(() => import("./DashBoardLabratory/ServicesLab").catch(() => ({ default: () => <div>ServicesLab failed to load</div> })));
 const AddAnalysis = lazy(() => import("./DashBoardLabratory/AddAnalysis").catch(() => ({ default: () => <div>AddAnalysis failed to load</div> })));
 const GetAllAnalysis = lazy(() => import("./DashBoardLabratory/GetAllAtAnalysis").catch(() => ({ default: () => <div>GetAllAnalysis failed to load</div> })));
@@ -74,8 +64,6 @@ const EditProfileForLab = lazy(() => import("./DashBoardLabratory/EditProfileFor
 const ForgetPasswordForLab = lazy(() => import("./DashBoardLabratory/ForgetPasswordForLab").catch(() => ({ default: () => <div>ForgetPasswordForLab failed to load</div> })));
 const DashBoardLaboratoryOfficial = lazy(() => import("./DashBoardLabratory/Layout").catch(() => ({ default: () => <div>LayoutForLab failed to load</div> })));
 const SubscribeLab = lazy(() => import("./DashBoardLabratory/SubscribeLab").catch(() => ({ default: () => <div>LayoutForLab failed to load</div> })));
-
-// Dashboard Nurse Components
 const AddAppointmentForNurse = lazy(() => import("./DashBoardNurse/AddAppointment").catch(() => ({ default: () => <div>AddAppointment failed to load</div> })));
 const AddNursingForNurse = lazy(() => import("./DashBoardNurse/AddNursing").catch(() => ({ default: () => <div>AddNursing failed to load</div> })));
 const AddPlaceForNurse = lazy(() => import("./DashBoardNurse/AddPlace").catch(() => ({ default: () => <div>AddPlace failed to load</div> })));
@@ -84,9 +72,6 @@ const ManageBookingsForNurse = lazy(() => import("./DashBoardNurse/ManageBooking
 const ManagePlacesForNurse = lazy(() => import("./DashBoardNurse/ManagePlaces").catch(() => ({ default: () => <div>ManagePlaces failed to load</div> })));
 const PlacesByCityForNurse = lazy(() => import("./DashBoardNurse/PlacesByCity").catch(() => ({ default: () => <div>PlacesByCity failed to load</div> })));
 const DashBoardNurseToNurse = lazy(() => import("./DashBoardNurse/DashboardNurseHome").catch(() => ({ default: () => <div>DashBoardNurse failed to load</div> })));
-
-
-// Admin Dashboard Components
 const MiniDrawer = lazy(() => import("./Adminn/Dashboard/MiniDrawer").catch(() => ({ default: () => <div>MiniDrawer failed to load</div> })));
 const Dashboard = lazy(() => import("./Adminn/Dashboard/page/dashboard/Dashboard").catch(() => ({ default: () => <div>Dashboard failed to load</div> })));
 const BarChart = lazy(() => import("./Adminn/Dashboard/page/barChart/BarChart").catch(() => ({ default: () => <div>BarChart failed to load</div> })));
@@ -97,8 +82,6 @@ const ProfileForm = lazy(() => import("./Adminn/Dashboard/page/form/Form").catch
 const Calendar = lazy(() => import("./Adminn/Dashboard/page/calendar/Calendar").catch(() => ({ default: () => <div>Calendar failed to load</div> })));
 const FAQ = lazy(() => import("./Adminn/Dashboard/page/faq/FAQ").catch(() => ({ default: () => <div>FAQ failed to load</div> })));
 const PieChart = lazy(() => import("./Adminn/Dashboard/page/pieChart/PieChart").catch(() => ({ default: () => <div>PieChart failed to load</div> })));
-
-// Admin Register Components
 const GetUsers = lazy(() => import("./Register Admin/Components/GetUser").catch(() => ({ default: () => <div>Get Users</div> })));
 const ForgetPasswordForAdmin = lazy(() => import("./Register Admin/Components/ResetPasswordForAdmin").catch(() => ({ default: () => <div>ForgetPassword failed to load</div> })));
 const VerifyOtpForAdmin = lazy(() => import("./Register Admin/Components/VerifyOtpForAdmin").catch(() => ({ default: () => <div>ForgetPassword failed to load</div> })));
@@ -114,18 +97,12 @@ const RegisterLaboratory = lazy(() => import("./Register Admin/Components/Regist
 const RegisterCities = lazy(() => import("./Register Admin/Components/RegisterCities").catch(() => ({ default: () => <div>RegisterCities failed to load</div> })));
 const RegisterNursings = lazy(() => import("./Register Admin/Components/RegisterNursings").catch(() => ({ default: () => <div>RegisterNursings failed to load</div> })));
 const RegisterNurses = lazy(() => import("./Register Admin/Components/RegisterNurses").catch(() => ({ default: () => <div>RegisterNurses failed to load</div> })));
-
-// Main Dashboard Components
 const DashNO = lazy(() => import("./DASHBOARD NURSE/Components/Dash").catch(() => ({ default: () => <div>Dash failed to load</div> })));
 const DashNurse = lazy(() => import("./DASHBOARD NURSE/Components/DashNurse").catch(() => ({ default: () => <div>DashNurse failed to load</div> })));
-
-// Service Components
 const Nurse1 = lazy(() => import("./Nursing/NursingAr").catch(() => ({ default: () => <div>NursingAr failed to load</div> })));
 const Nurse2 = lazy(() => import("./Nursing/NursingEn").catch(() => ({ default: () => <div>NursingEn failed to load</div> })));
 const Labratory1 = lazy(() => import("./Labratory/Labratory").catch(() => ({ default: () => <div>Labratory failed to load</div> })));
 const Labratory2 = lazy(() => import("./Labratory/LabratoyAr").catch(() => ({ default: () => <div>LabratoyAr failed to load</div> })));
-
-// Nurse Dashboard Additional Pages
 const EditProfilePage = lazy(() => import("./DASHBOARD NURSE/Components/EditProfile").catch(() => ({ default: () => <div>EditProfile failed to load</div> })));
 const SettingsPage = lazy(() => import("./DASHBOARD NURSE/Components/Setting").catch(() => ({ default: () => <div>Setting failed to load</div> })));
 const Patientssss = lazy(() => import("./DASHBOARD NURSE/Components/patientsss").catch(() => ({ default: () => <div>patientsss failed to load</div> })));
@@ -138,21 +115,18 @@ const AccountNurse = lazy(() => import("./DASHBOARD NURSE/Components/Pages/Profi
 const AccountSetting = lazy(() => import("./DASHBOARD NURSE/Components/Pages/Settings").catch(() => ({ default: () => <div>Settings failed to load</div> })));
 const ForgetPasswordForNurse = lazy(() => import("./DashBoardNurse/ForgetPasswordForNurse").catch(() => ({ default: () => <div>Settings failed to load</div> })));
 const EditProfileForNurse = lazy(() => import("./DashBoardNurse/EditProfileForNurse").catch(() => ({ default: () => <div>Settings failed to load</div> })));
-
-// Dashboard Laboratory Pages
 const AppointmantLab = lazy(() => import("./DASHBOARD LABRATORY/Components/Pages/AppointmentsPage").catch(() => ({ default: () => <div>AppointmentsPage failed to load</div> })));
 const ConsultantionLab = lazy(() => import("./DASHBOARD LABRATORY/Components/Pages/ConsultationsPage").catch(() => ({ default: () => <div>ConsultationsPage failed to load</div> })));
 const Boss = lazy(() => import("./DASHBOARD LABRATORY/Components/Pages/DashboardPage").catch(() => ({ default: () => <div>DashboardPage failed to load</div> })));
 const PatientLab = lazy(() => import("./DASHBOARD LABRATORY/Components/Pages/Patients").catch(() => ({ default: () => <div>Patients failed to load</div> })));
 const ProfileLab = lazy(() => import("./DASHBOARD LABRATORY/Components/Pages/Profile").catch(() => ({ default: () => <div>Profile failed to load</div> })));
 const SettingLab = lazy(() => import("./DASHBOARD LABRATORY/Components/Pages/Settings").catch(() => ({ default: () => <div>Settings failed to load</div> })));
-
-// Additional Components
 const ChatApp = lazy(() => import("./Chat/Chat").catch(() => ({ default: () => <div>Chat failed to load</div> })));
 const DashBoardDoctorOffical = lazy(() => import("./DashDdddd").catch(() => ({ default: () => <div>DashDdddd failed to load</div> })));
 const Dashboarddoctorww = lazy(() => import("./DashDoctor").catch(() => ({ default: () => <div>DashDoctor failed to load</div> })));
- const ChatAppforLabAndNurseAndDoctor = lazy(() => import("./DashboardDoctor/Chat").catch(() => ({ default: () => <div>Chat failed to load</div> })));
-// Logout Component for Nurse
+const ChatAppforLabAndNurseAndDoctor = lazy(() => import("./DashboardDoctor/Chat").catch(() => ({ default: () => <div>Chat failed to load</div> })));
+
+// Nurse Logout Component
 const NurseLogout = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -184,7 +158,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/homepage" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return children;
@@ -206,15 +180,15 @@ const App = () => {
         <Suspense fallback={<div>Loading...</div>}>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/homepage" element={<HomePage />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/homepage" element={<HomePage />} />
             <Route path="/verify-otp" element={<VerifyOTPPage />} />
             <Route path="/register" element={<Register />} />
             <Route path="/register/page2" element={<ProfilePage />} />
             <Route path="/registration-success" element={<SuccessPage />} />
             <Route path="/forgot-password" element={<PasswordResetComponent />} />
-            <Route path="/settings" element={<ResetPassword />} />
+            <Route path="/settings" element={<PasswordResetComponent />} />
             <Route path="/AboutUs" element={<AboutUs />} />
             <Route path="/HeroSection" element={<HeroSection />} />
             <Route path="/ContactUsService" element={<ServiceContactUs />} />
@@ -237,28 +211,27 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
-           <Route 
-           path="/Chat"
-           element={
-            <ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}>
-              <ChatAppforLabAndNurseAndDoctor />
-            </ProtectedRoute>
-           }
-           />
-
+            <Route
+              path="/Chat"
+              element={
+                <ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}>
+                  <ChatAppforLabAndNurseAndDoctor />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/resetpasswordforpatient"
               element={
                 <ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}>
-                  <ResetPasswordForPatient/>
+                  <ResetPasswordForPatient />
                 </ProtectedRoute>
               }
             />
-             <Route
+            <Route
               path="/medical-recoreds"
               element={
                 <ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}>
-                  <MedicalRecordsForPatient/>
+                  <MedicalRecordsForPatient />
                 </ProtectedRoute>
               }
             />
@@ -369,7 +342,7 @@ const App = () => {
             <Route
               path="/Chats"
               element={
-                <ProtectedRoute allowedRoles={["Patient", "Doctor", "Laboratory", "Admin", "SuperAdmin" , "Nurse" ]}>
+                <ProtectedRoute allowedRoles={["Patient", "Doctor", "Laboratory", "Admin", "SuperAdmin", "Nurse"]}>
                   <ChatApp />
                 </ProtectedRoute>
               }
@@ -406,7 +379,6 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
-
             {/* Doctor Dashboard Routes */}
             <Route
               path="/DashboardDoctorOfficial"
@@ -496,279 +468,274 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
-
             {/* Laboratory Dashboard Routes */}
-              <Route
-                path="/DashBoardLaboratoryOfficial"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <DashBoardLaboratoryOfficial />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/AcceptBook"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <AcceptBook />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/AddAnalysis"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <AddAnalysis />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/CreateAnalysisAtCities"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <CreateAnalysisAtCities />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/CreateAppointmentAtCity"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <CreateAppointmentAtCity />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/GetAllAnalysis"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <GetAllAnalysis />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/GETAppointmentAtCity"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <GETAppointmentAtCity />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/PatientBookLabAllLab"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <PatientBookLabAllLab />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/EditProfileForLab"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <EditProfileForLab />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ForgetPasswordForLab"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <ForgetPasswordForLab />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ServicesLab"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <ServicesLab />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/lab-dashboard/appointments"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <AppointmantLab />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/lab-dashboard/consultations"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <ConsultantionLab />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/lab-dashboard/dashboard"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <Boss />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/lab-dashboard/patients"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <PatientLab />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/lab-dashboard/profile"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <ProfileLab />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/lab-dashboard/settings"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <SettingLab />
-                  </ProtectedRoute>
-                }
-              />
-                <Route
-                path="/subscribeLab"
-                element={
-                  <ProtectedRoute allowedRoles={["Laboratory"]}>
-                    <SubscribeLab />
-                  </ProtectedRoute>
-                }
-              />
-              
-
+            <Route
+              path="/DashBoardLaboratoryOfficial"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <DashBoardLaboratoryOfficial />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/AcceptBook"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <AcceptBook />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/AddAnalysis"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <AddAnalysis />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/CreateAnalysisAtCities"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <CreateAnalysisAtCities />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/CreateAppointmentAtCity"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <CreateAppointmentAtCity />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/GetAllAnalysis"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <GetAllAnalysis />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/GETAppointmentAtCity"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <GETAppointmentAtCity />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/PatientBookLabAllLab"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <PatientBookLabAllLab />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/EditProfileForLab"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <EditProfileForLab />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ForgetPasswordForLab"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <ForgetPasswordForLab />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ServicesLab"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <ServicesLab />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lab-dashboard/appointments"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <AppointmantLab />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lab-dashboard/consultations"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <ConsultantionLab />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lab-dashboard/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <Boss />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lab-dashboard/patients"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <PatientLab />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lab-dashboard/profile"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <ProfileLab />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lab-dashboard/settings"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <SettingLab />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/subscribeLab"
+              element={
+                <ProtectedRoute allowedRoles={["Laboratory"]}>
+                  <SubscribeLab />
+                </ProtectedRoute>
+              }
+            />
             {/* Nurse Dashboard Routes */}
-
-          <Route element={<NurseDashboardLayout />}>
-
-            <Route
-              path="/dashboard-nurse"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dash-nurse"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/add-appointment-for-nurse"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/add-nursing-for-nurse"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/add-place-for-nurse"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/booking-list-for-nurse"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse-dashboard-home"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/manage-bookings-for-nurse"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/manage-places-for-nurse"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/places-by-city-for-nurse"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse/edit-profile"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse/settings"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse/logout"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseLogout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/forgetpasswordnurse"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/editprofilenurse"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-          </Route>
+            <Route element={<NurseDashboardLayout />}>
+              <Route
+                path="/dashboard-nurse"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dash-nurse"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/add-appointment-for-nurse"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/add-nursing-for-nurse"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/add-place-for-nurse"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/booking-list-for-nurse"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/nurse-dashboard-home"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/manage-bookings-for-nurse"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/manage-places-for-nurse"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/places-by-city-for-nurse"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/nurse/edit-profile"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/nurse/settings"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/nurse/logout"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseLogout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/forgetpasswordnurse"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/editprofilenurse"
+                element={
+                  <ProtectedRoute allowedRoles={["Nurse"]}>
+                    <NurseDashboardLayout />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
             <Route
               path="/nurse/patients"
               element={
@@ -833,7 +800,6 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
-
             {/* Admin Dashboard Routes */}
             <Route
               path="/admin"
@@ -868,7 +834,6 @@ const App = () => {
               <Route path="verifyotpadmin" element={<VerifyOtpForAdmin />} />
               <Route path="editProfileForAdmin" element={<EditProfileForAdmin />} />
             </Route>
-
             {/* Catch-all Route */}
             <Route path="*" element={<div>Page Not Found</div>} />
           </Routes>

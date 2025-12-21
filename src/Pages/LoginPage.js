@@ -130,39 +130,30 @@ const LoginPage = () => {
         });
 
         if (!res.ok) {
-          const errorText = await res.text();
-          console.error('Server response:', errorText);
           if (res.status === 500) {
             setGoogleError('Authentication service is temporarily unavailable. Please try again later.');
             return;
           }
-          if (res.status === 500 && errorText.includes('NULL')) {
-            setGoogleError('Google sign-in requires additional profile information. Redirecting to registration...');
-            setTimeout(() => navigate('/register?source=google&error=incomplete_profile'), 3000);
-            return;
-          }
-          throw new Error(`Google authentication failed. Please try again.`);
+          throw new Error('Google authentication failed. Please try again.');
         }
 
         const data = await res.json();
-        console.log('Google login response:', data);
 
         const accessToken = data.accessToken || data.token;
-        const refreshToken = data.refreshToken;
         const user = data.user || {
           email: data.email || 'google-user@example.com',
           id: data.userId || null,
         };
 
         if (!accessToken) {
-          throw new Error('No authentication token received');
+          throw new Error('Authentication failed. Please try again.');
         }
 
         const loginResult = await login(accessToken, user);
         navigateByRole(loginResult.role, 'google-login');
       } catch (error) {
         console.error('Google login error:', error);
-        setGoogleError(error.message || 'Google authentication failed. Please try email login.');
+        setGoogleError('Google authentication failed. Please try email login.');
       } finally {
         setGoogleLoading(false);
       }
@@ -248,7 +239,7 @@ const LoginPage = () => {
     return Object.keys(errors).length === 0;
   };
 
-  // Regular login handler
+  // Regular login handler with improved error handling
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -269,22 +260,24 @@ const LoginPage = () => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Server error response:', errorText, 'Status:', response.status);
-        
-        // Handle different error scenarios
+        // Handle different error scenarios with user-friendly messages
         if (response.status === 500) {
           setErrors({ form: 'Service temporarily unavailable. Please try again later.' });
           return;
         }
         
         if (response.status === 401) {
-          setErrors({ form: 'Invalid email or password. Please check your credentials and try again.' });
+          setErrors({ form: 'Invalid email or password. Please try again.' });
           return;
         }
         
         if (response.status === 403) {
           navigate('/verify-otp', { state: { email: email.trim() } });
+          return;
+        }
+        
+        if (response.status === 400) {
+          setErrors({ form: 'Invalid login credentials. Please check your information.' });
           return;
         }
         
@@ -294,7 +287,6 @@ const LoginPage = () => {
       }
 
       const data = await response.json();
-      console.log('Login response:', data);
 
       if (data.accessToken) {
         const accessToken = data.accessToken;
@@ -305,12 +297,12 @@ const LoginPage = () => {
       } else if (data.message?.includes('Email not confirmed') || response.status === 403) {
         navigate('/verify-otp', { state: { email: email.trim() } });
       } else {
-        setErrors({ form: data.message || 'Login failed. Please check your credentials.' });
+        setErrors({ form: 'Login failed. Please check your credentials.' });
       }
     } catch (error) {
       console.error('Login error:', error);
       if (error.message.includes('CORS') || error.name === 'TypeError') {
-        setErrors({ form: 'Unable to connect to the server. Please check your internet connection and try again.' });
+        setErrors({ form: 'Unable to connect to the server. Please check your internet connection.' });
       } else {
         setErrors({ form: 'Network error. Please try again.' });
       }
@@ -414,7 +406,7 @@ const LoginPage = () => {
                       <path d="M12 16v-4" />
                       <path d="M12 8h.01" />
                     </svg>
-                    Please sign in to access {location.state.from.pathname}
+                    Please sign in to continue
                   </div>
                 </div>
               )}
@@ -467,7 +459,7 @@ const LoginPage = () => {
                   {errors.email && <div className="invalid-feedback">{errors.email}</div>}
                 </div>
                 
-                {/* Enhanced Password Field */}
+                {/* Enhanced Password Field with Fixed Icon Position */}
                 <div className="mb-4">
                   <label
                     htmlFor="password"
@@ -476,10 +468,10 @@ const LoginPage = () => {
                   >
                     Password
                   </label>
-                  <div className="position-relative">
+                  <div className="password-input-wrapper">
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      className={`form-control ${errors.password ? 'is-invalid' : ''}`}
+                      className={`form-control password-input ${errors.password ? 'is-invalid' : ''}`}
                       id="password"
                       placeholder="Enter your password"
                       value={password}
@@ -488,42 +480,25 @@ const LoginPage = () => {
                         backgroundColor: 'rgba(240, 245, 255, 0.9)',
                         border: errors.password ? '1px solid #dc3545' : '1px solid #0d6efd',
                         borderRadius: '8px',
-                        padding: '0.75rem 3rem 0.75rem 1rem',
+                        padding: '0.75rem 1rem',
+                        paddingRight: '2.75rem',
                         fontSize: '0.9rem',
                         transition: 'all 0.2s ease-in-out',
-                        paddingRight: '3rem',
                       }}
                     />
                     
-                    {/* Enhanced Password Toggle Button */}
+                    {/* Fixed Password Toggle Button */}
                     <button
                       type="button"
-                      className="btn btn-link position-absolute"
+                      className="password-toggle-btn"
                       onClick={togglePasswordVisibility}
-                      style={{
-                        top: '50%',
-                        right: '8px',
-                        transform: 'translateY(-50%)',
-                        border: 'none',
-                        background: 'none',
-                        padding: '0.25rem',
-                        width: '2rem',
-                        height: '2rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        color: '#6c757d',
-                        zIndex: 10,
-                        textDecoration: 'none',
-                      }}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                       title={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? (
                         <svg
-                          width="16"
-                          height="16"
+                          width="18"
+                          height="18"
                           viewBox="0 0 24 24"
                           fill="none"
                           stroke="currentColor"
@@ -536,8 +511,8 @@ const LoginPage = () => {
                         </svg>
                       ) : (
                         <svg
-                          width="16"
-                          height="16"
+                          width="18"
+                          height="18"
                           viewBox="0 0 24 24"
                           fill="none"
                           stroke="currentColor"
@@ -552,7 +527,7 @@ const LoginPage = () => {
                     </button>
                     
                     {errors.password && (
-                      <div className="invalid-feedback">
+                      <div className="invalid-feedback d-block">
                         {errors.password}
                       </div>
                     )}
@@ -595,7 +570,7 @@ const LoginPage = () => {
                         role="status"
                         aria-hidden="true"
                       ></span>
-                      Authenticating...
+                      Signing in...
                     </>
                   ) : (
                     <>
@@ -735,14 +710,52 @@ const LoginPage = () => {
         </div>
       )}
       
-      <div className="visually-hidden" aria-live="polite" aria-atomic="true">
-        {loading && 'Login in progress'}
-        {googleLoading && 'Google authentication in progress'}
-        {errors.form && `Login error: ${errors.form}`}
-        {googleError && `Google authentication error: ${googleError}`}
-      </div>
-      
       <style>{`
+        /* Password input wrapper for proper positioning */
+        .password-input-wrapper {
+          position: relative;
+          width: 100%;
+        }
+
+        /* Password input field */
+        .password-input {
+          width: 100%;
+        }
+
+        /* Fixed Password Toggle Button */
+        .password-toggle-btn {
+          position: absolute;
+          top: 50%;
+          right: 12px;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          padding: 6px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #6c757d;
+          transition: color 0.2s ease;
+          z-index: 5;
+          outline: none;
+        }
+
+        .password-toggle-btn:hover {
+          color: #0d6efd;
+        }
+
+        .password-toggle-btn:focus {
+          outline: 2px solid #0d6efd;
+          outline-offset: 2px;
+          border-radius: 4px;
+        }
+
+        .password-toggle-btn svg {
+          width: 18px;
+          height: 18px;
+        }
+
         /* Enhanced form control styles */
         .form-control:focus {
           border-color: #0d6efd !important;
@@ -752,32 +765,20 @@ const LoginPage = () => {
         
         .form-control.is-invalid {
           border-color: #dc3545 !important;
+          padding-right: 2.75rem !important;
         }
         
         .form-control.is-invalid:focus {
           border-color: #dc3545 !important;
           box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15) !important;
         }
-        
-        /* Password field specific styles */
-        .position-relative input[type="password"],
-        .position-relative input[type="text"] {
-          padding-right: 3rem !important;
-        }
-        
-        .btn-link:hover {
-          color: #0d6efd !important;
-        }
-        
-        .btn-link:focus {
-          box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
-        }
 
         /* Enhanced button styles */
         .btn:focus {
           box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
         }
-/* Responsive adjustments */
+
+        /* Responsive adjustments */
         @media (max-width: 767.98px) {
           .col-md-6 {
             padding: 1rem !important;
@@ -799,6 +800,10 @@ const LoginPage = () => {
           .btn {
             padding: 0.875rem 1rem !important;
             font-size: 1rem !important;
+          }
+
+          .password-toggle-btn {
+            right: 10px;
           }
         }
 
@@ -880,7 +885,7 @@ const LoginPage = () => {
         /* Focus improvements for better accessibility */
         .form-control:focus,
         .btn:focus,
-        .btn-link:focus {
+        .password-toggle-btn:focus {
           outline: none !important;
         }
 
@@ -953,7 +958,8 @@ const LoginPage = () => {
           .form-control,
           .btn,
           a,
-          .spinner-border {
+          .spinner-border,
+          .password-toggle-btn {
             transition: none !important;
             animation: none !important;
           }
@@ -965,10 +971,43 @@ const LoginPage = () => {
             color: #8e8e93 !important;
           }
         }
+
+        /* Invalid feedback positioning fix */
+        .invalid-feedback {
+          display: block;
+          margin-top: 0.25rem;
+          font-size: 0.875em;
+          color: #dc3545;
+        }
+
+        /* Ensure password field has proper spacing for icon */
+        .password-input-wrapper .form-control {
+          padding-right: 2.75rem !important;
+        }
+
+        /* Additional fixes for mobile devices */
+        @media (max-width: 480px) {
+          .password-toggle-btn {
+            right: 8px;
+            padding: 8px;
+          }
+
+          .password-toggle-btn svg {
+            width: 16px;
+            height: 16px;
+          }
+
+          h3 {
+            font-size: 1.25rem !important;
+          }
+
+          .form-label {
+            font-size: 0.85rem !important;
+          }
+        }
       `}</style>
     </div>
   );
 };
 
 export default LoginPage;
-       

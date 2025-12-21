@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import Navbar from './Nav';
+import Footer from './Footer';
+import { Nav } from 'react-bootstrap';
+import Navbar from './navwithcalude';
+import { Margin } from '@mui/icons-material';
 const PasswordResetComponent = () => {
   const [currentStep, setCurrentStep] = useState('forgot'); // 'forgot' or 'reset'
   const [email, setEmail] = useState('');
@@ -166,14 +169,14 @@ const PasswordResetComponent = () => {
 
   return (
     <>
-    <Navbar />
+<Navbar />
       <link 
         href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" 
         rel="stylesheet" 
       />
       <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
       
-      <div className="min-vh-100 bg-light d-flex align-items-center justify-content-center py-5">
+      <div className="min-vh-100 bg-light d-flex align-items-center justify-content-center">
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-md-6 col-lg-4">
@@ -382,6 +385,7 @@ const PasswordResetComponent = () => {
           </div>
         </div>
       </div>
+      <Footer />
     </>
   );
 };

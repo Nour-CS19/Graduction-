@@ -3,222 +3,287 @@ import React, { useState } from "react";
 const pricingList = {
   monthlyPricings: [
     {
-      planTitle: "Basic",
-      price: "$9",
+      planTitle: "Patient Basic",
+      price: "$15",
       timeline: "/month",
-      description:
-        "It's easier to reach your savings goals when you have the right savings account.",
+      userType: "For Patients",
+      description: "Essential healthcare management tools for personal health monitoring and medical record access.",
       features: [
-        { isActive: true, label: "Build Links" },
-        { isActive: true, label: "Over 66 complex" },
-        { isActive: false, label: "24/7 Contact support" },
-        { isActive: false, label: "Build Tools easily" },
-        { isActive: false, label: "6TB storage" },
+        { isActive: true, label: "Medical Records Access" },
+        { isActive: true, label: "Appointment Booking" },
+        { isActive: true, label: "Lab Results Viewing" },
+        { isActive: false, label: "Telemedicine Consultations" },
+        { isActive: false, label: "Priority Support" },
+        { isActive: false, label: "Health Analytics Dashboard" },
       ],
       isActive: false,
+      variant: "primary"
     },
     {
-      planTitle: "Premium",
-      price: "$29",
+      planTitle: "Nurse Pro",
+      price: "$45",
       timeline: "/month",
-      description:
-        "More off this less hello salamander lied porpoise much over tightly circa horse taped.",
+      userType: "For Nurses",
+      description: "Comprehensive nursing tools for patient care coordination and clinical workflow management.",
       features: [
-        { isActive: true, label: "Build Links" },
-        { isActive: true, label: "Over 66 complex" },
-        { isActive: true, label: "24/7 Contact support" },
-        { isActive: true, label: "Build Tools easily" },
-        { isActive: true, label: "6TB storage" },
+        { isActive: true, label: "Patient Care Plans" },
+        { isActive: true, label: "Medication Tracking" },
+        { isActive: true, label: "Shift Management" },
+        { isActive: true, label: "Clinical Documentation" },
+        { isActive: true, label: "Care Team Communication" },
+        { isActive: false, label: "Advanced Reporting" },
+      ],
+      isActive: false,
+      variant: "secondary"
+    },
+    {
+      planTitle: "Doctor Premium",
+      price: "$85",
+      timeline: "/month",
+      userType: "For Doctors",
+      description: "Advanced medical practice management with diagnostic tools and patient relationship features.",
+      features: [
+        { isActive: true, label: "Electronic Health Records" },
+        { isActive: true, label: "Diagnostic Decision Support" },
+        { isActive: true, label: "Prescription Management" },
+        { isActive: true, label: "Telemedicine Platform" },
+        { isActive: true, label: "Patient Portal Integration" },
+        { isActive: true, label: "Medical Billing Integration" },
       ],
       isActive: true,
+      variant: "success"
+    },
+    {
+      planTitle: "Laboratory Enterprise",
+      price: "$150",
+      timeline: "/month",
+      userType: "For Laboratories",
+      description: "Complete laboratory information system with advanced analytics and regulatory compliance tools.",
+      features: [
+        { isActive: true, label: "Lab Information System (LIS)" },
+        { isActive: true, label: "Sample Tracking & Management" },
+        { isActive: true, label: "Quality Control & Assurance" },
+        { isActive: true, label: "Regulatory Compliance Tools" },
+        { isActive: true, label: "Advanced Analytics & Reporting" },
+        { isActive: true, label: "Multi-location Management" },
+      ],
+      isActive: false,
+      variant: "warning"
     },
   ],
   yearlyPricings: [
     {
-      planTitle: "Basic",
-      price: "$99",
+      planTitle: "Patient Basic",
+      price: "$150",
       timeline: "/year",
-      description:
-        "More off this less hello salamander lied porpoise much over tightly circa horse taped.",
+      userType: "For Patients",
+      description: "Essential healthcare management tools for personal health monitoring and medical record access.",
       features: [
-        { isActive: true, label: "Build Links" },
-        { isActive: true, label: "Over 66 complex" },
-        { isActive: false, label: "24/7 Contact support" },
-        { isActive: false, label: "Build Tools easily" },
-        { isActive: false, label: "6TB storage" },
+        { isActive: true, label: "Medical Records Access" },
+        { isActive: true, label: "Appointment Booking" },
+        { isActive: true, label: "Lab Results Viewing" },
+        { isActive: true, label: "Telemedicine Consultations" },
+        { isActive: false, label: "Priority Support" },
+        { isActive: false, label: "Health Analytics Dashboard" },
       ],
       isActive: false,
+      variant: "primary"
     },
     {
-      planTitle: "Premium",
-      price: "$299",
+      planTitle: "Nurse Pro",
+      price: "$450",
       timeline: "/year",
-      description:
-        "It's easier to reach your savings goals when you have the right savings account.",
+      userType: "For Nurses",
+      description: "Comprehensive nursing tools for patient care coordination and clinical workflow management.",
       features: [
-        { isActive: true, label: "Build Links" },
-        { isActive: true, label: "Over 66 complex" },
-        { isActive: true, label: "24/7 Contact support" },
-        { isActive: true, label: "Build Tools easily" },
-        { isActive: true, label: "6TB storage" },
+        { isActive: true, label: "Patient Care Plans" },
+        { isActive: true, label: "Medication Tracking" },
+        { isActive: true, label: "Shift Management" },
+        { isActive: true, label: "Clinical Documentation" },
+        { isActive: true, label: "Care Team Communication" },
+        { isActive: true, label: "Advanced Reporting" },
+      ],
+      isActive: false,
+      variant: "secondary"
+    },
+    {
+      planTitle: "Doctor Premium",
+      price: "$850",
+      timeline: "/year",
+      userType: "For Doctors",
+      description: "Advanced medical practice management with diagnostic tools and patient relationship features.",
+      features: [
+        { isActive: true, label: "Electronic Health Records" },
+        { isActive: true, label: "Diagnostic Decision Support" },
+        { isActive: true, label: "Prescription Management" },
+        { isActive: true, label: "Telemedicine Platform" },
+        { isActive: true, label: "Patient Portal Integration" },
+        { isActive: true, label: "Medical Billing Integration" },
       ],
       isActive: true,
+      variant: "success"
+    },
+    {
+      planTitle: "Laboratory Enterprise",
+      price: "$1,500",
+      timeline: "/year",
+      userType: "For Laboratories",
+      description: "Complete laboratory information system with advanced analytics and regulatory compliance tools.",
+      features: [
+        { isActive: true, label: "Lab Information System (LIS)" },
+        { isActive: true, label: "Sample Tracking & Management" },
+        { isActive: true, label: "Quality Control & Assurance" },
+        { isActive: true, label: "Regulatory Compliance Tools" },
+        { isActive: true, label: "Advanced Analytics & Reporting" },
+        { isActive: true, label: "Multi-location Management" },
+      ],
+      isActive: false,
+      variant: "warning"
     },
   ],
 };
 
 const PricingItem = ({ pricing }) => (
-  <div
-    className={`pricing-item p-4 ${pricing.isActive ? 'active' : ''}`}
-    style={{
-      backgroundColor: pricing.isActive ? '#0d6efd' : '#f7f7ff',
-      borderRadius: '15px',
-      color: pricing.isActive ? 'white' : '#252d39',
-      background: pricing.isActive 
-        ? 'linear-gradient(145deg, rgba(13, 110, 253, 1) 0%, rgba(13, 110, 253, 0.7) 100%)'
-        : '#f7f7ff',
-      boxShadow: pricing.isActive ? '0 0.5rem 1rem rgba(0, 0, 0, 0.15)' : 'none',
-      transition: 'all 0.25s ease-in-out'
-    }}
-  >
-    <h3 className="fw-bold mb-2">
-      {pricing.planTitle}
-    </h3>
-    <div className="mb-3">
-      <span className="fs-3 fw-bold">{pricing.price}</span>
-      <span className="ms-2 opacity-75">{pricing.timeline}</span>
+  <div className={`card h-100 ${pricing.isActive ? 'border-' + pricing.variant + ' border-3' : 'border-light'} position-relative`}>
+    {pricing.isActive && (
+      <div className="position-absolute top-0 start-50 translate-middle">
+        <span className={`badge bg-${pricing.variant} px-3 py-2 rounded-pill`}>
+          RECOMMENDED
+        </span>
+      </div>
+    )}
+    
+    <div className={`card-header bg-${pricing.variant} bg-opacity-10 border-0 text-center py-4`}>
+      <small className={`text-${pricing.variant} fw-semibold text-uppercase tracking-wide`}>
+        {pricing.userType}
+      </small>
+      <h3 className={`h4 fw-bold mb-3 text-${pricing.variant}`}>
+        {pricing.planTitle}
+      </h3>
+      <div className="mb-0">
+        <span className={`display-4 fw-bold text-${pricing.variant}`}>{pricing.price}</span>
+        <span className={`text-${pricing.variant} opacity-75`}>{pricing.timeline}</span>
+      </div>
     </div>
-    <p className="opacity-75 mb-4">
-      {pricing.description}
-    </p>
-    <ul className="list-unstyled">
-      {pricing.features.map((feature, i) => (
-        <li
-          className={`${pricing.features.length - 1 > i ? 'mb-3' : ''}`}
-          key={i}
-        >
-          <span className="me-2">
-            {feature.isActive ? (
-              <i className="fas fa-check text-success opacity-75"></i>
-            ) : (
-              <i className="fas fa-times text-danger opacity-75"></i>
-            )}
-          </span>
-          <span className="opacity-75">{feature.label}</span>
-        </li>
-      ))}
-    </ul>
-
-    <button
-      className={`btn w-100 mt-4 ${
-        pricing.isActive 
-          ? 'btn-light text-dark' 
-          : 'btn-outline-primary'
-      }`}
-      style={{
-        padding: '12px 30px',
-        ...(pricing.isActive ? {} : {
-          backgroundColor: 'rgba(13, 110, 253, 0.1)',
-          borderColor: 'rgba(13, 110, 253, 0.3)'
-        })
-      }}
-    >
-      Choose plan
-    </button>
+    
+    <div className="card-body d-flex flex-column">
+      <p className="text-muted mb-4">
+        {pricing.description}
+      </p>
+      
+      <ul className="list-unstyled mb-4 flex-grow-1">
+        {pricing.features.map((feature, i) => (
+          <li className="mb-3 d-flex align-items-center" key={i}>
+            <span className={`me-3 d-flex align-items-center justify-content-center rounded-circle ${feature.isActive ? 'bg-success' : 'bg-danger'}`} style={{ width: '24px', height: '24px' }}>
+              <i className={`fas ${feature.isActive ? 'fa-check' : 'fa-times'} text-white`} style={{ fontSize: '12px' }}></i>
+            </span>
+            <span className={`${feature.isActive ? 'text-dark' : 'text-muted'}`}>
+              {feature.label}
+            </span>
+          </li>
+        ))}
+      </ul>
+      
+      <button className={`btn btn-${pricing.variant} btn-lg w-100 mt-auto`}>
+        Get Started
+      </button>
+    </div>
   </div>
 );
 
-const Pricing8 = () => {
+const HealthcarePricing = () => {
   const [isActiveYearlyPricing, setIsActiveYearlyPricing] = useState(false);
 
   const switchActiveTimeline = (tab) => setIsActiveYearlyPricing(tab);
 
   return (
-    <section 
-      className="py-5"
-      style={{
-        backgroundColor: '#ffffff',
-        minHeight: '100vh',
-        paddingTop: '60px',
-        paddingBottom: '60px'
-      }}
-    >
-      <div className="container">
+    <section className="py-5 bg-light">
+      <div className="container py-5">
+        {/* Header Section */}
         <div className="row justify-content-center mb-5">
-          <div className="col-lg-6 col-xl-5 text-center">
-            <h2 
-              className="mb-3 fw-bold"
-              style={{
-                fontSize: '45px',
-                lineHeight: '45px',
-                color: '#252d39'
-              }}
-            >
-              Flexible Plan for you
-            </h2>
-            <p 
-              className="mb-0"
-              style={{
-                fontSize: '16px',
-                lineHeight: '22px',
-                color: '#252d39'
-              }}
-            >
-              Choice suitable plan for you.
+          <div className="col-lg-8 col-xl-6 text-center">
+            <h1 className="display-4 fw-bold mb-4 text-dark">
+              Healthcare Solutions for Everyone
+            </h1>
+            <p className="lead text-muted mb-0">
+              Comprehensive healthcare management systems designed for patients, nurses, doctors, and laboratories.
             </p>
           </div>
         </div>
         
-        <div className="text-center mb-4 d-flex justify-content-center align-items-center">
-          <button
-            className={`btn border-0 ${!isActiveYearlyPricing ? 'fw-bold' : ''}`}
-            style={{
-              color: '#252d39',
-              padding: '12px 30px',
-              backgroundColor: !isActiveYearlyPricing ? 'rgba(13, 110, 253, 0.1)' : 'transparent'
-            }}
-            onClick={() => switchActiveTimeline(false)}
-          >
-            MONTHLY
-          </button>
-          
-          <div className="mx-3">
-            <div className="form-check form-switch">
-              <input 
-                className="form-check-input" 
-                type="checkbox" 
-                role="switch" 
-                id="pricing-switcher"
-                checked={isActiveYearlyPricing}
-                onChange={(e) => switchActiveTimeline(e.target.checked)}
-                style={{ transform: 'scale(1.5)' }}
-              />
+        {/* Pricing Toggle */}
+        <div className="row justify-content-center mb-5">
+          <div className="col-auto">
+            <div className="card border-0 shadow-sm">
+              <div className="card-body p-2">
+                <div className="d-flex align-items-center">
+                  <button
+                    className={`btn ${!isActiveYearlyPricing ? 'btn-primary' : 'btn-outline-primary'} me-3`}
+                    onClick={() => switchActiveTimeline(false)}
+                  >
+                    Monthly
+                  </button>
+                  
+                  <div className="form-check form-switch mx-3">
+                    <input 
+                      className="form-check-input" 
+                      type="checkbox" 
+                      role="switch" 
+                      id="pricing-switcher"
+                      checked={isActiveYearlyPricing}
+                      onChange={(e) => switchActiveTimeline(e.target.checked)}
+                      style={{ transform: 'scale(1.2)' }}
+                    />
+                  </div>
+                  
+                  <button
+                    className={`btn ${isActiveYearlyPricing ? 'btn-primary' : 'btn-outline-primary'} position-relative`}
+                    onClick={() => switchActiveTimeline(true)}
+                  >
+                    Yearly
+                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success">
+                      17% OFF
+                      <span className="visually-hidden">discount</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-          
-          <button
-            className={`btn border-0 ${isActiveYearlyPricing ? 'fw-bold' : ''}`}
-            style={{
-              color: '#252d39',
-              padding: '12px 30px',
-              backgroundColor: isActiveYearlyPricing ? 'rgba(13, 110, 253, 0.1)' : 'transparent'
-            }}
-            onClick={() => switchActiveTimeline(true)}
-          >
-            YEARLY
-          </button>
         </div>
         
-        <div className="row justify-content-center">
+        {/* Pricing Cards */}
+        <div className="row g-4 mb-5">
           {(isActiveYearlyPricing ? pricingList.yearlyPricings : pricingList.monthlyPricings).map((pricing, i) => (
-            <div className="col-md-6 col-lg-4 mt-4" key={i}>
+            <div className="col-md-6 col-lg-3" key={i}>
               <PricingItem pricing={pricing} />
             </div>
           ))}
         </div>
+        
+        {/* CTA Section */}
+        <div className="row justify-content-center">
+          <div className="col-lg-8">
+            <div className="card bg-primary text-white text-center">
+              <div className="card-body py-5">
+                <h3 className="card-title h2 fw-bold mb-3">Need a Custom Solution?</h3>
+                <p className="card-text lead mb-4">
+                  Contact our team to discuss enterprise solutions and custom integrations for your healthcare organization.
+                </p>
+                <button className="btn btn-light btn-lg px-4">
+                  <i className="fas fa-phone me-2"></i>
+                  Contact Sales
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+      
+      {/* Font Awesome for icons */}
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     </section>
   );
 };
 
-export default Pricing8;
+export default HealthcarePricing;

@@ -236,7 +236,6 @@ const NurseSidebar = ({ isCollapsed, toggleSidebar, activeView, setActiveView, i
                 setProfilePhoto(URL.createObjectURL(photoResponse.data));
             } catch (err) {
                 console.error('Fetch photo error:', err);
-                setPhotoError('Failed to load profile photo');
             } finally {
                 setPhotoLoading(false);
             }

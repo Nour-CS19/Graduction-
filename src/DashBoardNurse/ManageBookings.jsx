@@ -113,9 +113,9 @@ const createApiEndpoints = (userId) => ({
   bookings: {
     getAll: `PatientBookNurse/get-all-booking-for-nurse/${userId}`,
     accept: (bookingId) => `PatientBookNurse/${bookingId}`,
-    reject: (bookingId) => `PatientBookNurse/reject-booking/${bookingId}`, // Assuming a reject endpoint
+    reject: (bookingId) => `PatientBookNurse/reject-booking/${bookingId}`,
     delete: (bookingId) => `PatientBookNurse/hard-delete-booking-by-id/${bookingId}`,
-    getImage: (filename, path = 'nurse/booking') => 
+    getImage: (filename, path = 'Nurse%2FBooking') => 
       `Upload/image?filename=${encodeURIComponent(filename)}&path=${encodeURIComponent(path)}`
   }
 });
@@ -158,12 +158,10 @@ const useAsyncAction = () => {
 
 // Enhanced data processing utilities
 const DataProcessor = {
-  // Modern UUID validation using regex
   isValidUUID: (uuid) => {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
   },
 
-  // Extract and validate booking ID
   extractBookingId: (booking, index) => {
     const idFields = ['bookingId', 'id', 'Id', 'booking_id'];
     
@@ -177,14 +175,10 @@ const DataProcessor = {
     return `temp-${index}-${Date.now()}`;
   },
 
-  // Process booking data with modern destructuring
   processBooking: (rawBooking, index) => {
     const id = DataProcessor.extractBookingId(rawBooking, index);
     
-    // Use nullish coalescing and logical OR for cleaner data extraction
     const serverIsAccepted = rawBooking.isAccepted ?? rawBooking.IsAccepted ?? rawBooking.is_accepted ?? null;
-    
-    // Set status based on IsAccepted
     const status = serverIsAccepted === true ? 'Accepted' : serverIsAccepted === false ? 'Pending' : 'Pending';
     
     return {
@@ -212,13 +206,11 @@ const DataProcessor = {
     };
   },
 
-  // Modern array processing with proper response handling
   processApiResponse: (response) => {
     if (!response?.data) return [];
 
     let bookingsData = [];
     
-    // Handle different response structures
     if (Array.isArray(response.data)) {
       bookingsData = response.data;
     } else if (response.data.data && Array.isArray(response.data.data)) {
@@ -229,7 +221,6 @@ const DataProcessor = {
       bookingsData = [response.data];
     }
 
-    // Remove duplicates using Map for better performance
     const uniqueBookings = new Map();
     bookingsData.forEach((booking, index) => {
       const key = booking.id || booking.bookingId || JSON.stringify(booking);
@@ -258,7 +249,6 @@ const useBookingFilters = (bookings) => {
   const filteredAndSortedBookings = useMemo(() => {
     let result = [...bookings];
 
-    // Status filtering
     if (filters.status !== 'all') {
       result = result.filter(booking => {
         switch (filters.status) {
@@ -269,7 +259,6 @@ const useBookingFilters = (bookings) => {
       });
     }
 
-    // Date range filtering
     if (filters.dateRange !== 'all') {
       const now = Date.now();
       const dayMs = 24 * 60 * 60 * 1000;
@@ -285,7 +274,6 @@ const useBookingFilters = (bookings) => {
       });
     }
 
-    // Search filtering
     if (filters.searchTerm) {
       const searchLower = filters.searchTerm.toLowerCase();
       result = result.filter(booking => 
@@ -295,12 +283,10 @@ const useBookingFilters = (bookings) => {
       );
     }
 
-    // Sorting
     result.sort((a, b) => {
       let aValue = a[sortConfig.key];
       let bValue = b[sortConfig.key];
       
-      // Handle different data types
       if (['date', 'createdAt'].includes(sortConfig.key)) {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
@@ -341,13 +327,11 @@ const ManageBookings = () => {
   const { labId, accessToken: contextAccessToken } = context;
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   
-  // Authentication data with modern approach
   const authData = useMemo(() => ({
     userId: labId || user?.id || user?.Id || user?.userId,
     accessToken: contextAccessToken || user?.accessToken
   }), [labId, user, contextAccessToken]);
 
-  // State management
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [imageLoading, setImageLoading] = useState({});
@@ -355,7 +339,6 @@ const ManageBookings = () => {
   const [lastRefresh, setLastRefresh] = useState(null);
   const [corsError, setCorsError] = useState(false);
   
-  // Custom hooks
   const { alert, showAlert, hideAlert } = useAlert();
   const { loading: actionLoading, actionType, executeAction } = useAsyncAction();
   const {
@@ -366,7 +349,6 @@ const ManageBookings = () => {
     filteredAndSortedBookings
   } = useBookingFilters(bookings);
 
-  // Modern API client instance
   const apiClient = useMemo(() => {
     if (!authData.accessToken) return null;
     
@@ -381,7 +363,6 @@ const ManageBookings = () => {
     [authData.userId]
   );
 
-  // Fetch bookings
   const fetchBookings = useCallback(async () => {
     if (!apiClient || !apiEndpoints) {
       showAlert('warning', 'Authentication required. Please log in again.');
@@ -424,7 +405,6 @@ const ManageBookings = () => {
     }
   }, [apiClient, apiEndpoints, showAlert]);
 
-  // Accept booking
   const handleAcceptBooking = useCallback(async (bookingId) => {
     if (!DataProcessor.isValidUUID(bookingId)) {
       showAlert('danger', 'Invalid booking ID format.');
@@ -433,12 +413,10 @@ const ManageBookings = () => {
 
     return executeAction(bookingId, 'accept', async () => {
       try {
-        // Optimistically update UI immediately
         setBookings(prev => prev.map(b => 
           b.id === bookingId ? { ...b, isAccepted: true, status: 'Accepted' } : b
         ));
 
-        // Send to server
         const patchData = [{
           op: "replace",
           path: "/IsAccepted",
@@ -452,11 +430,8 @@ const ManageBookings = () => {
         );
 
         showAlert('success', 'Booking accepted successfully!');
-        
-        // Refresh data after delay
         setTimeout(() => fetchBookings(), 2000);
       } catch (error) {
-        // Revert UI on failure
         setBookings(prev => prev.map(b => 
           b.id === bookingId ? { ...b, isAccepted: null, status: 'Pending' } : b
         ));
@@ -470,7 +445,6 @@ const ManageBookings = () => {
     });
   }, [executeAction, apiClient, apiEndpoints, showAlert, fetchBookings]);
 
-  // Reject booking
   const handleRejectBooking = useCallback(async (bookingId) => {
     if (!DataProcessor.isValidUUID(bookingId)) {
       showAlert('danger', 'Invalid booking ID format.');
@@ -479,12 +453,10 @@ const ManageBookings = () => {
 
     return executeAction(bookingId, 'reject', async () => {
       try {
-        // Optimistically update UI immediately
         setBookings(prev => prev.map(b => 
           b.id === bookingId ? { ...b, isAccepted: false, status: 'Pending' } : b
         ));
 
-        // Send to server
         const patchData = [{
           op: "replace",
           path: "/IsAccepted",
@@ -498,11 +470,8 @@ const ManageBookings = () => {
         );
 
         showAlert('success', 'Booking rejected successfully!');
-        
-        // Refresh data after delay
         setTimeout(() => fetchBookings(), 2000);
       } catch (error) {
-        // Revert UI on failure
         setBookings(prev => prev.map(b => 
           b.id === bookingId ? { ...b, isAccepted: null, status: 'Pending' } : b
         ));
@@ -516,7 +485,6 @@ const ManageBookings = () => {
     });
   }, [executeAction, apiClient, apiEndpoints, showAlert, fetchBookings]);
 
-  // Delete booking
   const handleDeleteBooking = useCallback(async (bookingId) => {
     if (!confirm('Are you sure you want to delete this booking? This action cannot be undone.')) {
       return;
@@ -525,10 +493,7 @@ const ManageBookings = () => {
     return executeAction(bookingId, 'delete', async () => {
       try {
         await apiClient.delete(apiEndpoints.bookings.delete(bookingId));
-        
-        // Remove from bookings
         setBookings(prev => prev.filter(b => b.id !== bookingId));
-
         showAlert('success', 'Booking deleted successfully!');
         setTimeout(() => fetchBookings(), 2000);
       } catch (error) {
@@ -541,21 +506,24 @@ const ManageBookings = () => {
     });
   }, [executeAction, apiClient, apiEndpoints, showAlert, fetchBookings]);
 
-  // View payment image
   const handleViewPaymentImage = useCallback(async (bookingId, filePath) => {
     if (!filePath) {
       showAlert('warning', 'No receipt image available.');
       return;
     }
 
+    // Validate image file extension
+    const validImageExtensions = ['.jpg', '.jpeg', '.png', '.gif'];
+    if (!validImageExtensions.some(ext => filePath.toLowerCase().endsWith(ext))) {
+      showAlert('warning', 'Invalid image file format.');
+      return;
+    }
+
     try {
       setImageLoading(prev => ({ ...prev, [bookingId]: true }));
       
-      const pathParts = filePath.split('/');
-      const filename = pathParts.pop();
-      const path = pathParts.join('/') || 'Receipts';
-      
-      const imageUrl = `https://physiocareapp.runasp.net/api/v1/${apiEndpoints.bookings.getImage(filename, path)}`;
+      const filename = filePath; // filePath is just the filename
+      const imageUrl = `https://physiocareapp.runasp.net/api/v1/${apiEndpoints.bookings.getImage(filename)}`;
       setViewImage(imageUrl);
     } catch (error) {
       showAlert('danger', 'Failed to load payment receipt.');
@@ -564,7 +532,6 @@ const ManageBookings = () => {
     }
   }, [apiEndpoints, showAlert]);
 
-  // Utility functions
   const getStatusBadge = useCallback((booking) => {
     const badgeText = booking.status;
     const badgeClass = booking.status === 'Accepted' ? 'bg-success' : 'bg-warning text-dark';
@@ -620,14 +587,12 @@ const ManageBookings = () => {
       : <i className="bi bi-arrow-down text-primary ms-1"></i>;
   }, [sortConfig]);
 
-  // Effects
   useEffect(() => {
     if (!authLoading && isAuthenticated && authData.accessToken && authData.userId) {
       fetchBookings();
     }
   }, [authLoading, isAuthenticated, authData.accessToken, authData.userId, fetchBookings]);
 
-  // Auto-refresh
   useEffect(() => {
     if (!authData.accessToken || !authData.userId) return;
 
@@ -638,7 +603,6 @@ const ManageBookings = () => {
     return () => clearInterval(refreshInterval);
   }, [authData.accessToken, authData.userId, fetchBookings]);
 
-  // Render guards
   if (authLoading) {
     return (
       <div className="container-fluid py-4">
@@ -667,10 +631,8 @@ const ManageBookings = () => {
   const pendingCount = bookings.filter(b => b.status === 'Pending').length;
   const acceptedCount = bookings.filter(b => b.status === 'Accepted').length;
 
-  // Main render
   return (
     <div className="container-fluid py-4">
-      {/* Header */}
       <div className="row mb-4">
         <div className="col-12">
           <div className="d-flex justify-content-between align-items-center flex-wrap">
@@ -697,7 +659,6 @@ const ManageBookings = () => {
         </div>
       </div>
 
-      {/* Statistics Cards */}
       <div className="row mb-4">
         <div className="col-md-3 col-sm-6 mb-3">
           <div className="card border-0 shadow-sm h-100">
@@ -740,7 +701,6 @@ const ManageBookings = () => {
         </div>
       </div>
 
-      {/* Alert */}
       {alert.show && (
         <div className={`alert alert-${alert.type} alert-dismissible fade show`} role="alert">
           <div className="d-flex align-items-center">
@@ -761,7 +721,6 @@ const ManageBookings = () => {
         </div>
       )}
 
-      {/* CORS Error */}
       {corsError && (
         <div className="alert alert-danger" role="alert">
           <h4 className="alert-heading">Connection Error</h4>
@@ -779,7 +738,6 @@ const ManageBookings = () => {
         </div>
       )}
 
-      {/* Filters and Search */}
       <div className="card mb-4">
         <div className="card-body">
           <div className="row g-3">
@@ -836,7 +794,6 @@ const ManageBookings = () => {
         </div>
       </div>
 
-      {/* Bookings Table */}
       <div className="card">
         <div className="card-header">
           <h5 className="card-title mb-0">
@@ -996,7 +953,6 @@ const ManageBookings = () => {
                               </button>
                             </>
                           )}
-                          
                           {booking.filePath && (
                             <button
                               className="btn btn-info btn-sm"
@@ -1012,7 +968,6 @@ const ManageBookings = () => {
                               Receipt
                             </button>
                           )}
-                          
                           <button
                             className="btn btn-danger btn-sm"
                             onClick={() => handleDeleteBooking(booking.id)}
@@ -1037,7 +992,6 @@ const ManageBookings = () => {
         </div>
       </div>
 
-      {/* Image Modal */}
       {viewImage && (
         <div 
           className="modal fade show d-block" 

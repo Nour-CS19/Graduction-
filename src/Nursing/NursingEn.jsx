@@ -932,7 +932,20 @@ function NursingAr() {
                     <div className="card-body p-3">
                       <div className="d-flex justify-content-between align-items-center mb-2">
                         <h5 className="card-title m-0 d-flex align-items-center">
-                          <i className="bi bi-person-circle fs-4 me-2 text-primary"></i>
+                          <img
+                            src={
+                              nurse.fileName && typeof nurse.fileName === 'string' && nurse.fileName.trim() !== ''
+                                ? `${baseUrl}/api/v1/Upload/image?filename=${encodeURIComponent(nurse.fileName)}&path=Actors/Nurse&t=${Date.now()}`
+                                : `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSIxMDAiIGZpbGw9IiNmMGZkZjQiLz48Y2lyY2xlIGN4PSIxMDAiIGN5PSI4NSIgcj0iMzUiIGZpbGw9IiMxMGI5ODEiLz48cGF0aCBkPSJNNjUgMTQwYzAtMTkuMzMgMTUuNjctMzUgMzUtMzVzMzUgMTUuNjcgMzUgMzV2NDBINjV2LTQweiIgZmlsbD0iIzEwYjk4MSIvPjxjaXJjbGUgY3g9IjE3MCIgY3k9IjUwIiByPSI4IiBmaWxsPSIjZWY0NDQ0Ii8+PGxpbmUgeDE9IjE2NiIgeTE9IjUwIiB4Mj0iMTc0IiB5Mj0iNTAiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIvPjxsaW5lIHgxPSIxNzAiIHkxPSI0NiIgeDI9IjE3MCIgeTI9IjU0IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=`
+                            }
+                            alt={nurse.fullName || 'Nurse'}
+                            className="rounded-circle me-2"
+                            style={{ width: '40px', height: '40px', objectFit: 'cover' }}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSIxMDAiIGZpbGw9IiNmMGZkZjQiLz48Y2lyY2xlIGN4PSIxMDAiIGN5PSI4NSIgcj0iMzUiIGZpbGw9IiMxMGI5ODEiLz48cGF0aCBkPSJNNjUgMTQwYzAtMTkuMzMgMTUuNjctMzUgMzUtMzVzMzUgMTUuNjcgMzUgMzV2NDBINjV2LTQweiIgZmlsbD0iIzEwYjk4MSIvPjxjaXJjbGUgY3g9IjE3MCIgY3k9IjUwIiByPSI4IiBmaWxsPSIjZWY0NDQ0Ii8+PGxpbmUgeDE9IjE2NiIgeTE9IjUwIiB4Mj0iMTc0IiB5Mj0iNTAiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIvPjxsaW5lIHgxPSIxNzAiIHkxPSI0NiIgeDI9IjE3MCIgeTI9IjU0IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=`;
+                            }}
+                          />
                           {nurse.fullName || 'Unknown Nurse'}
                         </h5>
                         <button
@@ -951,7 +964,7 @@ function NursingAr() {
                       <div className="nurse-info mb-2">
                         <div className="card bg-light p-2">
                           {Object.entries(nurse).map(([key, value]) => {
-                            if (['id', 'uniqueId'].includes(key) || !value) return null;
+                            if (['id', 'uniqueId', 'fileName'].includes(key) || !value) return null;
                             return (
                               <div key={key} className="d-flex align-items-center mb-1">
                                 <i className={`${getIconForField(key)} me-2 text-primary`}></i>
@@ -1332,18 +1345,6 @@ function NursingAr() {
                       <span className="ms-2 fw-bold">{selectedNurseData?.fullName || 'N/A'}</span>
                     </div>
                     <div className="d-flex align-items-center mb-2">
-                      <i className="bi bi-heart-pulse me-2 text-primary"></i>
-                      <span className="text-muted">Service:</span>
-                      <span className="ms-2 fw-bold">{selectedService?.name || 'N/A'}</span>
-                    </div>
-                    <div className="d-flex align-items-center mb-2">
-                      <i className="bi bi-geo-alt me-2 text-primary"></i>
-                      <span className="text-muted">City:</span>
-                      <span className="ms-2 fw-bold">{getCityName(selectedCity)}</span>
-                    </div>
-                  </div>
-                  <div className="col-md-6">
-                    <div className="d-flex align-items-center mb-2">
                       <i className="bi bi-calendar-event me-2 text-primary"></i>
                       <span className="text-muted">Date:</span>
                       <span className="ms-2 fw-bold">
@@ -1355,131 +1356,36 @@ function NursingAr() {
                       <span className="text-muted">Time:</span>
                       <span className="ms-2 fw-bold">{selectedTime || 'N/A'}</span>
                     </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="d-flex align-items-center mb-2">
+                      <i className="bi bi-geo-alt me-2 text-primary"></i>
+                      <span className="text-muted">Address:</span>
+                      <span className="ms-2 fw-bold">{address || 'N/A'}</span>
+                    </div>
+                    <div className="d-flex align-items-center mb-2">
+                      <i className="bi bi-telephone me-2 text-primary"></i>
+                      <span className="text-muted">Phone:</span>
+                      <span className="ms-2 fw-bold">{patientPhone || 'N/A'}</span>
+                    </div>
                     <div className="d-flex align-items-center mb-2">
                       <i className="bi bi-cash me-2 text-primary"></i>
-                      <span className="text-muted">Price:</span>
+                      <span className="text-muted">Total Price:</span>
                       <span className="ms-2 badge bg-primary text-white">EGP {totalPrice || '0'}</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            {successMessage && (
-              <div className="alert alert-success alert-dismissible fade show mt-3" role="alert">
-                <i className="bi bi-check-circle me-2"></i>
-                {successMessage}
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setSuccessMessage(null)}
-                  aria-label="Close"
-                ></button>
-              </div>
-            )}
-            {error && (
-              <div className="alert alert-danger alert-dismissible fade show mt-3" role="alert">
-                <i className="bi bi-exclamation-triangle me-2"></i>
-                {error}
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setError(null)}
-                  aria-label="Close"
-                ></button>
-              </div>
-            )}
-            <section className="booking-history mb-4" aria-labelledby="booking-history-title">
-              <h2 id="booking-history-title" className="mb-4 text-center">Your Booking History</h2>
-              {isLoading ? (
-                <div className="text-center py-4">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </div>
-                  <p className="mt-2">Loading bookings...</p>
-                </div>
-              ) : bookings.length === 0 ? (
-                <div className="alert alert-info text-center">
-                  <i className="bi bi-info-circle me-2"></i>
-                  No bookings found. Create a new booking to get started or contact support at{' '}
-                  <a href="mailto:support@physiocareapp.com">support@physiocareapp.com</a>.
-                  <div className="mt-3">
-                    <button className="btn btn-primary" onClick={() => setStep(1)}>
-                      Start New Booking
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table table-hover table-bordered" aria-describedby="booking-history-title">
-                    <thead className="table-primary">
-                      <tr>
-                        <th scope="col">Nurse</th>
-                        <th scope="col">Service</th>
-                        <th scope="col">Date</th>
-                        <th scope="col">Time</th>
-                        <th scope="col">Price</th>
-                        <th scope="col">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bookings.map((booking) => (
-                        <tr key={booking.id}>
-                          <td>{booking.nurseName}</td>
-                          <td>{booking.nursingName}</td>
-                          <td>{new Date(booking.date).toLocaleDateString()}</td>
-                          <td>{booking.time}</td>
-                          <td>EGP {booking.totalPrice}</td>
-                          <td>
-                            <div className="d-flex gap-2">
-                              <button
-                                className="btn btn-sm btn-outline-primary"
-                                onClick={() => handleViewAppointment(booking)}
-                                aria-label={`View details for booking ${booking.id}`}
-                              >
-                                <i className="bi bi-eye"></i> View
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-warning"
-                                onClick={() => handleEditAppointment(booking)}
-                                aria-label={`Edit booking ${booking.id}`}
-                              >
-                                <i className="bi bi-pencil"></i> Edit
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={() => handleRejectAppointment(booking.id)}
-                                disabled={isLoading}
-                                aria-label={`Delete booking ${booking.id}`}
-                              >
-                                <i className="bi bi-trash"></i> Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-            <div className="d-flex flex-column flex-md-row justify-content-center gap-3 mb-3">
-              <button className="btn btn-custom btn-outline-primary" onClick={handleDownloadPDF}>
-                <i className="bi bi-file-pdf me-2"></i>Download PDF
+            <div className="text-center mb-3">
+              <button className="btn btn-success me-2" onClick={handleDownloadPDF}>
+                <i className="bi bi-download me-2"></i>Download PDF
               </button>
-              <a href="/" className="btn btn-custom btn-success">
-                <i className="bi bi-house me-2"></i>Back to Home
-              </a>
             </div>
-            <div className="alert alert-info mt-3">
-              <div className="d-flex align-items-center">
-                <i className="bi bi-info-circle-fill me-2 fs-5"></i>
-                <div>
-                  <span className="mb-0">
-                    You will receive a confirmation email shortly. For any questions, please contact our support team at{' '}
-                    <a href="mailto:support@physiocareapp.com">support@physiocareapp.com</a>.
-                  </span>
-                </div>
-              </div>
+            <div className="nav-buttons">
+              <button className="btn btn-custom btn-primary" onClick={() => setStep(1)}>
+                Book Another Appointment
+              </button>
             </div>
           </div>
         );
@@ -1490,15 +1396,13 @@ function NursingAr() {
   };
 
   return (
-    <div className="nursing-booking">
+    <div>
       <Navbar />
-      <div className="container py-5">
+      <div className="container my-5">
         <div className="row justify-content-center">
-          <div className="col-md-8">
-            <div className="step-wrapper">
-              {renderStepIndicator()}
-              <div className="step-content mt-4">{renderStepContent()}</div>
-            </div>
+          <div className="col-lg-8">
+            {renderStepIndicator()}
+            {renderStepContent()}
           </div>
         </div>
       </div>

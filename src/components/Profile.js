@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../Pages/AuthPage'; // Adjust path if needed
-
+import Navbar from './Nav';
+import Footer from './Footer';
 const UpdateUserPhotoPage = () => {
   const { user } = useAuth();
   const [selectedFile, setSelectedFile] = useState(null);
@@ -53,6 +54,7 @@ const UpdateUserPhotoPage = () => {
   };
 
   return (
+    <><Navbar />
     <div className="container mt-5" style={{ maxWidth: '500px' }}>
       <h3 className="mb-4">Update Profile Photo</h3>
 
@@ -87,6 +89,8 @@ const UpdateUserPhotoPage = () => {
         </div>
       )}
     </div>
+    <Footer />
+    </>
   );
 };
 

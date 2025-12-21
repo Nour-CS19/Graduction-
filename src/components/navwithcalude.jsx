@@ -25,17 +25,21 @@ const Navbar = ({ onNavigate }) => {
     { id: 2, text: "Dr. Marwa updated your treatment plan", time: "9:15 AM", read: true },
     { id: 3, text: "Prescription ready for pickup", time: "Yesterday", read: false },
   ];
+
   const labNotifications = [
     { id: 4, text: "Lab result ready: Blood test", time: "8:30 AM", read: false },
     { id: 5, text: "X-Ray results available", time: "2 days ago", read: true },
   ];
+
   const doctorMessages = [
     { id: 1, text: "Message from Dr.Abdullah Ali: Please follow up.", time: "Yesterday", read: false },
     { id: 2, text: "Reminder: Take medication as prescribed", time: "2 days ago", read: true },
   ];
+
   const labMessages = [
     { id: 3, text: "Lab message: Your sample is processed.", time: "Today", read: false },
   ];
+
   const unreadNotifications = [...doctorNotifications, ...labNotifications].filter((n) => !n.read).length;
   const unreadMessages = [...doctorMessages, ...labMessages].filter((m) => !m.read).length;
 
@@ -92,6 +96,18 @@ const Navbar = ({ onNavigate }) => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    // Lock body scroll when mobile menu is open
+    if (navbarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [navbarOpen]);
 
   const handleServicesHoverOpen = () => {
     if (closeTimeoutRef.current) {
@@ -313,7 +329,7 @@ const Navbar = ({ onNavigate }) => {
   };
 
   return (
-    <div className="navbar-container">
+    <>
       <style>{`
         :root {
           --primary-color: #009DA5;
@@ -328,14 +344,11 @@ const Navbar = ({ onNavigate }) => {
           --shadow-medium: 0 4px 12px rgba(0,0,0,0.15);
           --transition: all 0.3s ease;
         }
+
         * {
           box-sizing: border-box;
         }
-        .navbar-container {
-          position: relative;
-          width: 100%;
-          padding-top: 70px; /* Push content down for fixed navbar */
-        }
+
         .navbar-custom {
           background-color: #fff;
           box-shadow: ${headerShadow ? "var(--shadow-medium)" : "var(--shadow-light)"};
@@ -344,19 +357,22 @@ const Navbar = ({ onNavigate }) => {
           position: fixed;
           top: 0;
           left: 0;
+          right: 0;
           width: 100%;
           z-index: 1030;
-          height: 70px; /* Fixed height for consistency */
         }
+
         .navbar-brand-wrapper {
           display: flex;
           align-items: center;
           gap: 0.5rem;
           flex-shrink: 0;
         }
+
         .navbar-logo {
           flex-shrink: 0;
         }
+
         .navbar-brand-custom {
           color: var(--primary-color);
           font-weight: 700;
@@ -367,10 +383,12 @@ const Navbar = ({ onNavigate }) => {
           white-space: nowrap;
           line-height: 1;
         }
+
         .navbar-brand-custom:hover {
           color: var(--primary-hover);
           transform: scale(1.02);
         }
+
         .nav-link-custom {
           color: rgb(0, 157, 165) !important;
           font-weight: 600;
@@ -383,14 +401,17 @@ const Navbar = ({ onNavigate }) => {
           white-space: nowrap;
           font-size: clamp(0.9rem, 2vw, 1rem);
         }
+
         .nav-link-custom:hover {
           background-color: rgba(0, 157, 165, 0.1);
           transform: translateY(-2px);
         }
+
         .nav-link-custom.active {
           color: rgb(0, 157, 165) !important;
           background-color: rgba(0, 157, 165, 0.08);
         }
+
         .services-dropdown {
           position: relative;
           cursor: pointer;
@@ -399,10 +420,12 @@ const Navbar = ({ onNavigate }) => {
           transition: var(--transition);
           margin: 0.25rem 0.5rem;
         }
+
         .services-dropdown.active {
           color: rgb(0, 157, 165) !important;
           background-color: rgba(0, 157, 165, 0.08);
         }
+
         .services-link {
           color: rgb(0, 157, 165) !important;
           font-weight: 600;
@@ -414,6 +437,7 @@ const Navbar = ({ onNavigate }) => {
           white-space: nowrap;
           font-size: clamp(0.9rem, 2vw, 1rem);
         }
+
         .services-menu {
           position: absolute;
           top: 100%;
@@ -427,6 +451,7 @@ const Navbar = ({ onNavigate }) => {
           border: 1px solid var(--border-color);
           overflow: hidden;
         }
+
         .services-menu::before {
           content: '';
           position: absolute;
@@ -440,6 +465,7 @@ const Navbar = ({ onNavigate }) => {
           border-left: 1px solid var(--border-color);
           border-top: 1px solid var(--border-color);
         }
+
         .dropdown-item-custom {
           padding: 1rem 1.25rem;
           display: flex;
@@ -455,19 +481,23 @@ const Navbar = ({ onNavigate }) => {
           font-weight: 500;
           font-size: clamp(0.85rem, 2vw, 0.95rem);
         }
+
         .dropdown-item-custom:hover {
           background: linear-gradient(90deg, rgba(0, 157, 165, 0.1), rgba(0, 157, 165, 0.05));
           color: var(--primary-color);
           transform: translateX(5px);
         }
+
         .dropdown-item-custom:disabled {
           opacity: 0.6;
           cursor: not-allowed;
         }
+
         .dropdown-item-custom.text-danger:hover {
           background: linear-gradient(90deg, rgba(220, 53, 69, 0.1), rgba(220, 53, 69, 0.05));
           color: var(--danger-color);
         }
+
         .profile-avatar {
           width: 45px;
           height: 45px;
@@ -483,10 +513,12 @@ const Navbar = ({ onNavigate }) => {
           font-size: 1.1rem;
           flex-shrink: 0;
         }
+
         .profile-avatar:hover {
           transform: scale(1.1);
           box-shadow: 0 4px 15px rgba(0, 157, 165, 0.4);
         }
+
         .profile-menu {
           position: absolute;
           top: calc(100% + 0.5rem);
@@ -501,6 +533,7 @@ const Navbar = ({ onNavigate }) => {
           overflow-y: auto;
           border: 1px solid var(--border-color);
         }
+
         .profile-menu-header {
           padding: 1rem;
           border-bottom: 1px solid var(--border-color);
@@ -508,14 +541,17 @@ const Navbar = ({ onNavigate }) => {
           align-items: center;
           gap: 0.75rem;
         }
+
         .profile-menu-avatar {
           flex-shrink: 0;
         }
+
         .profile-menu-info {
           flex: 1;
           min-width: 0;
           overflow: hidden;
         }
+
         .profile-menu-name {
           margin: 0;
           font-size: 0.95rem;
@@ -525,6 +561,7 @@ const Navbar = ({ onNavigate }) => {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+
         .menu-icon {
           width: 20px;
           height: 20px;
@@ -532,6 +569,7 @@ const Navbar = ({ onNavigate }) => {
           color: inherit;
           flex-shrink: 0;
         }
+
         .nursing-icon {
           width: 20px;
           height: 20px;
@@ -539,6 +577,7 @@ const Navbar = ({ onNavigate }) => {
           object-fit: contain;
           flex-shrink: 0;
         }
+
         .badge-custom {
           background: var(--danger-color);
           color: white;
@@ -555,6 +594,7 @@ const Navbar = ({ onNavigate }) => {
           right: 0;
           padding: 0 4px;
         }
+
         .modal-backdrop-custom {
           position: fixed;
           top: 0;
@@ -565,6 +605,7 @@ const Navbar = ({ onNavigate }) => {
           z-index: 1040;
           backdrop-filter: blur(2px);
         }
+
         .modal-custom {
           position: fixed;
           top: 50%;
@@ -579,12 +620,14 @@ const Navbar = ({ onNavigate }) => {
           z-index: 1050;
           box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
+
         .submenu-item {
           padding-left: 3.5rem;
           padding-top: 0.5rem;
           padding-bottom: 0.5rem;
           font-size: 0.85rem;
         }
+
         .loading-spinner {
           width: 16px;
           height: 16px;
@@ -593,29 +636,35 @@ const Navbar = ({ onNavigate }) => {
           border-radius: 50%;
           animation: spin 1s linear infinite;
         }
+
         .notification-item {
           padding: 0.75rem 1rem;
           border-bottom: 1px solid var(--border-color);
           transition: var(--transition);
           cursor: pointer;
         }
+
         .notification-item:hover {
           background-color: var(--light-bg);
         }
+
         .notification-item.unread {
           background-color: rgba(0, 157, 165, 0.05);
           border-left: 3px solid var(--primary-color);
         }
+
         .notification-time {
           font-size: 0.75rem;
           color: #666;
         }
+
         .navbar-nav-center {
           display: flex;
           justify-content: center;
           flex-grow: 1;
           align-items: center;
         }
+
         .icon-button {
           padding: 0.5rem;
           border: none;
@@ -627,9 +676,11 @@ const Navbar = ({ onNavigate }) => {
           align-items: center;
           justify-content: center;
         }
+
         .icon-button:hover {
           background-color: rgba(0, 157, 165, 0.1);
         }
+
         .logout-confirm {
           position: fixed;
           top: 50%;
@@ -644,12 +695,14 @@ const Navbar = ({ onNavigate }) => {
           box-shadow: 0 20px 60px rgba(0,0,0,0.3);
           text-align: center;
         }
+
         .logout-confirm-buttons {
           margin-top: 1.25rem;
           display: flex;
           gap: 1rem;
           justify-content: center;
         }
+
         .logout-confirm-btn {
           padding: 0.625rem 1.5rem;
           border-radius: 8px;
@@ -659,49 +712,93 @@ const Navbar = ({ onNavigate }) => {
           transition: var(--transition);
           font-size: 0.95rem;
         }
+
         .logout-confirm-btn:hover {
           transform: translateY(-2px);
           box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
+
         .logout-confirm-btn.yes {
           background-color: var(--danger-color);
           color: white;
         }
+
         .logout-confirm-btn.no {
           background-color: var(--primary-color);
           color: white;
         }
+
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-        /* Mobile Styles */
+
+        /* Mobile Slide-in Menu */
         @media (max-width: 991px) {
-          .navbar-container {
-            padding-top: 70px;
+          .mobile-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1020;
+            opacity: ${navbarOpen ? '1' : '0'};
+            pointer-events: ${navbarOpen ? 'auto' : 'none'};
+            transition: opacity 0.3s ease;
           }
+
           .navbar-collapse {
             position: fixed;
-            top: 70px;
+            top: 0;
             right: 0;
-            width: min(280px, 80vw);
-            height: calc(100vh - 70px);
+            height: 100vh;
+            width: 320px;
+            max-width: 85vw;
             background-color: #fff;
-            transform: translateX(100%);
-            transition: transform var(--transition);
             overflow-y: auto;
-            padding: 1rem;
-            border-left: 1px solid var(--border-color);
-            z-index: 1029;
+            padding: 1.5rem;
+            z-index: 1025;
+            transform: translateX(${navbarOpen ? '0' : '100%'});
+            transition: transform 0.3s ease;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.2);
           }
-          .navbar-collapse.show {
-            transform: translateX(0);
+
+          .mobile-menu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--primary-color);
           }
+
+          .mobile-menu-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            transition: var(--transition);
+          }
+
+          .mobile-menu-close:hover {
+            background-color: rgba(0, 157, 165, 0.1);
+          }
+
           .navbar-nav-center {
             flex-direction: column;
             align-items: stretch;
             width: 100%;
           }
+
           .nav-link-custom {
             width: 100%;
             text-align: left;
@@ -709,15 +806,18 @@ const Navbar = ({ onNavigate }) => {
             margin: 0.25rem 0;
             border-radius: 8px;
           }
+
           .services-dropdown {
             width: 100%;
             margin: 0.25rem 0;
             padding: 0.75rem 1rem;
           }
+
           .services-link {
             width: 100%;
             padding: 0;
           }
+
           .services-menu {
             position: static;
             box-shadow: none;
@@ -726,46 +826,77 @@ const Navbar = ({ onNavigate }) => {
             border: none;
             width: 100%;
           }
+
           .services-menu::before {
             display: none;
           }
+
+          .mobile-menu-section {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+          }
+
+          .mobile-icons-section {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+          }
+
+          .mobile-profile-section {
+            margin-top: 1.5rem;
+          }
+
           .profile-menu {
             position: static;
-            margin: 0.5rem 0;
+            margin: 0;
             background: var(--light-bg);
             box-shadow: none;
             width: 100%;
             border: none;
             max-width: 100%;
+            border-radius: 10px;
           }
+
           .profile-menu-header {
             background: white;
             border-radius: 8px;
             margin-bottom: 0.5rem;
           }
-          .dropdown-item-custom {
-            padding: 0.75rem 1rem;
+        }
+
+        /* Desktop Styles */
+        @media (min-width: 992px) {
+          .mobile-menu-overlay,
+          .mobile-menu-header,
+          .mobile-menu-section,
+          .mobile-icons-section,
+          .mobile-profile-section {
+            display: none !important;
           }
-          .submenu-item {
-            padding-left: 2.5rem;
+
+          .navbar-collapse {
+            display: flex !important;
+            flex-basis: auto;
+            position: static;
+            height: auto;
+            width: auto;
+            padding: 0;
+            transform: none;
+            box-shadow: none;
+            overflow: visible;
           }
-          .modal-custom {
-            width: 95%;
-            max-height: 90vh;
+
+          .navbar-nav-center {
+            flex-direction: row;
+            gap: 0.5rem;
           }
-          .icon-button {
-            padding: 0.4rem;
-          }
-          .menu-backdrop {
-            position: fixed;
-            top: 70px;
-            left: 0;
-            width: 100%;
-            height: calc(100vh - 70px);
-            background-color: rgba(0,0,0,0.4);
-            z-index: 1028;
+
+          .nav-link-custom {
+            color: rgb(0, 157, 165) !important;
           }
         }
+
         /* Tablet Styles */
         @media (min-width: 992px) and (max-width: 1199px) {
           .navbar-nav-center {
@@ -781,16 +912,7 @@ const Navbar = ({ onNavigate }) => {
             margin: 0 0.25rem;
           }
         }
-        /* Desktop Styles */
-        @media (min-width: 992px) {
-          .navbar-nav-center {
-            flex-direction: row;
-            gap: 0.5rem;
-          }
-          .nav-link-custom {
-            color: rgb(0, 157, 165) !important;
-          }
-        }
+
         /* Large Desktop Styles */
         @media (min-width: 1200px) {
           .navbar-nav-center {
@@ -805,6 +927,7 @@ const Navbar = ({ onNavigate }) => {
             margin: 0 0.5rem;
           }
         }
+
         /* Small Mobile Styles */
         @media (max-width: 575px) {
           .navbar-brand-wrapper {
@@ -847,10 +970,7 @@ const Navbar = ({ onNavigate }) => {
             font-size: 0.875rem;
           }
         }
-        /* Fix for scrolling issues */
-        body.modal-open {
-          overflow: hidden;
-        }
+
         /* Smooth scrolling */
         .navbar-collapse,
         .profile-menu,
@@ -858,16 +978,19 @@ const Navbar = ({ onNavigate }) => {
           scrollbar-width: thin;
           scrollbar-color: var(--primary-color) var(--light-bg);
         }
+
         .navbar-collapse::-webkit-scrollbar,
         .profile-menu::-webkit-scrollbar,
         .modal-custom::-webkit-scrollbar {
           width: 6px;
         }
+
         .navbar-collapse::-webkit-scrollbar-track,
         .profile-menu::-webkit-scrollbar-track,
         .modal-custom::-webkit-scrollbar-track {
           background: var(--light-bg);
         }
+
         .navbar-collapse::-webkit-scrollbar-thumb,
         .profile-menu::-webkit-scrollbar-thumb,
         .modal-custom::-webkit-scrollbar-thumb {
@@ -875,6 +998,12 @@ const Navbar = ({ onNavigate }) => {
           border-radius: 3px;
         }
       `}</style>
+
+      {/* Mobile Menu Overlay */}
+      {navbarOpen && (
+        <div className="mobile-menu-overlay" onClick={toggleNavbar} />
+      )}
+
       <nav className="navbar navbar-expand-lg navbar-custom">
         <div className="container-fluid px-3 px-md-4 py-2">
           <div className="navbar-brand-wrapper">
@@ -906,21 +1035,33 @@ const Navbar = ({ onNavigate }) => {
             </span>
           </div>
           <button
-            className="navbar-toggler border-0"
+            className="navbar-toggler border-0 d-lg-none"
             type="button"
             onClick={toggleNavbar}
             aria-label="Toggle navigation"
             style={{ boxShadow: "none" }}
           >
             <i
-              className={`bi bi-${navbarOpen ? "x" : "list"}`}
+              className="bi bi-list"
               style={{
                 fontSize: "1.5rem",
                 color: "var(--primary-color)"
               }}
             ></i>
           </button>
-          <div className={`collapse navbar-collapse ${navbarOpen ? "show" : ""}`} id="navbarNav">
+          <div className="navbar-collapse" id="navbarNav">
+            {/* Mobile Menu Header - Only visible on mobile */}
+            <div className="mobile-menu-header">
+              <span className="navbar-brand-custom" style={{ fontSize: '1.2rem' }}>Menu</span>
+              <button
+                className="mobile-menu-close"
+                onClick={toggleNavbar}
+                aria-label="Close menu"
+              >
+                <i className="bi bi-x"></i>
+              </button>
+            </div>
+
             <div className="navbar-nav-center flex-column flex-lg-row">
               <button
                 className={`nav-link-custom ${activePage === "home" ? "active" : ""}`}
@@ -993,7 +1134,9 @@ const Navbar = ({ onNavigate }) => {
                 <i className="bi bi-telephone me-2 d-lg-none"></i>Contact Us
               </button>
             </div>
-            <div className="d-flex align-items-center gap-2 gap-md-3 mt-3 mt-lg-0">
+            
+            {/* Desktop Icons - Only visible on desktop */}
+            <div className="d-none d-lg-flex align-items-center gap-2 gap-md-3">
               <div className="position-relative">
                 <button
                   className="icon-button position-relative"
@@ -1023,11 +1166,6 @@ const Navbar = ({ onNavigate }) => {
                   role="button"
                   aria-label="User profile"
                   tabIndex={0}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      setProfileMenuOpen(!profileMenuOpen);
-                    }
-                  }}
                 >
                   {renderProfileAvatar()}
                 </div>
@@ -1093,7 +1231,9 @@ const Navbar = ({ onNavigate }) => {
                         disabled={isLoggingOut}
                       >
                         {isLoggingOut ? (
-                          <div className="loading-spinner me-3"></div>
+                          <div className="spinner-border spinner-border-sm me-3" role="status">
+                            <span className="visually-hidden">Loading...</span>
+                          </div>
                         ) : (
                           <i className="bi bi-box-arrow-right menu-icon"></i>
                         )}
@@ -1104,12 +1244,119 @@ const Navbar = ({ onNavigate }) => {
                 )}
               </div>
             </div>
+
+            {/* Mobile Icons and Profile Section */}
+            <div className="mobile-menu-section d-lg-none">
+              <div className="mobile-icons-section">
+                <button
+                  className="icon-button position-relative flex-1"
+                  onClick={() => {
+                    setNotificationsDialogOpen(true);
+                    setNavbarOpen(false);
+                  }}
+                  style={{ flex: 1, justifyContent: 'center' }}
+                >
+                  <i className="bi bi-bell" style={{ fontSize: "1.3rem", color: "var(--primary-color)" }}></i>
+                  {unreadNotifications > 0 && (
+                    <span className="badge-custom">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>
+                  )}
+                </button>
+                <button
+                  className="icon-button position-relative flex-1"
+                  onClick={() => {
+                    setMessagesDialogOpen(true);
+                    setNavbarOpen(false);
+                  }}
+                  style={{ flex: 1, justifyContent: 'center' }}
+                >
+                  <i className="bi bi-envelope" style={{ fontSize: "1.3rem", color: "var(--primary-color)" }}></i>
+                  {unreadMessages > 0 && <span className="badge-custom">{unreadMessages > 9 ? "9+" : unreadMessages}</span>}
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile Profile Section */}
+            <div className="mobile-profile-section d-lg-none">
+              <div className="profile-menu">
+                <div className="profile-menu-header">
+                  <div className="profile-menu-avatar">
+                    {renderProfileAvatar("50px", "1.2rem")}
+                  </div>
+                  <div className="profile-menu-info">
+                    <h6 className="profile-menu-name">
+                      {userInfo?.name || "Guest"}
+                    </h6>
+                  </div>
+                </div>
+                <button className="dropdown-item-custom" onClick={() => handleNavigation("/profile")}>
+                  <i className="bi bi-person menu-icon"></i>
+                  <span>My Profile</span>
+                </button>
+                <div className="position-relative">
+                  <button className="dropdown-item-custom" onClick={() => setAppointmentsOpen(!appointmentsOpen)}>
+                    <i className="bi bi-calendar-check menu-icon"></i>
+                    <span>My Appointments</span>
+                    <i className={`bi bi-chevron-${appointmentsOpen ? "up" : "down"} ms-auto`}></i>
+                  </button>
+                  {appointmentsOpen && (
+                    <div>
+                      <button className="dropdown-item-custom submenu-item" onClick={() => handleAppointmentType("Online")}>
+                        <i className="bi bi-laptop menu-icon"></i>
+                        <span>Online Bookings</span>
+                      </button>
+                      <button className="dropdown-item-custom submenu-item" onClick={() => handleAppointmentType("Offline")}>
+                        <i className="bi bi-building menu-icon"></i>
+                        <span>At Clinic Bookings</span>
+                      </button>
+                      <button className="dropdown-item-custom submenu-item" onClick={() => handleAppointmentType("AtHome")}>
+                        <i className="bi bi-house menu-icon"></i>
+                        <span>At Home Bookings</span>
+                      </button>
+                      <button className="dropdown-item-custom submenu-item" onClick={() => handleAppointmentType("Nurse")}>
+                        <i className="bi bi-heart menu-icon"></i>
+                        <span>Nurse Bookings</span>
+                      </button>
+                      <button className="dropdown-item-custom submenu-item" onClick={() => handleAppointmentType("Lab")}>
+                        <i className="bi bi-heart-pulse menu-icon"></i>
+                        <span>Laboratory Bookings</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <button className="dropdown-item-custom" onClick={() => handleNavigation("/chats")}>
+                  <i className="bi bi-chat-dots menu-icon"></i>
+                  <span>Chats</span>
+                </button>
+                <button className="dropdown-item-custom" onClick={() => handleNavigation("/resetpasswordforpatient")}>
+                  <i className="bi bi-person-lock menu-icon"></i>
+                  <span>Forget Password</span>
+                </button>
+                <div className="border-top mt-2">
+                  <button
+                    className="dropdown-item-custom text-danger d-flex align-items-center"
+                    onClick={confirmLogout}
+                    disabled={isLoggingOut}
+                  >
+                    {isLoggingOut ? (
+                      <div className="spinner-border spinner-border-sm me-3" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                      </div>
+                    ) : (
+                      <i className="bi bi-box-arrow-right menu-icon"></i>
+                    )}
+                    <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </nav>
-      {navbarOpen && (
-        <div className="menu-backdrop" onClick={toggleNavbar}></div>
-      )}
+
+      {/* Spacer to prevent content from going under fixed navbar */}
+      <div style={{ height: '70px' }}></div>
+
+      {/* Notifications Modal */}
       {notificationsDialogOpen && (
         <div>
           <div className="modal-backdrop-custom" onClick={() => setNotificationsDialogOpen(false)}></div>
@@ -1172,6 +1419,8 @@ const Navbar = ({ onNavigate }) => {
           </div>
         </div>
       )}
+
+      {/* Messages Modal */}
       {messagesDialogOpen && (
         <div>
           <div className="modal-backdrop-custom" onClick={() => setMessagesDialogOpen(false)}></div>
@@ -1234,6 +1483,8 @@ const Navbar = ({ onNavigate }) => {
           </div>
         </div>
       )}
+
+      {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
         <div>
           <div className="modal-backdrop-custom" onClick={() => setShowLogoutConfirm(false)}></div>
@@ -1253,7 +1504,7 @@ const Navbar = ({ onNavigate }) => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
