@@ -55,8 +55,7 @@ export default function DoctorDashboard() {
 
   return (
     <div className="container-fluid p-0">
-      {/* Top Navbar */}
-      <NavBar />
+    
 
       {/* Sidebar + Main Content */}
       <div className="row m-0">

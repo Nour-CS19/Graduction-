@@ -1,3 +1,4 @@
+// LoginPage.js - Complete Login Component with User ID Integration
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../Pages/AuthPage';
@@ -71,8 +72,8 @@ const LoginPage = () => {
     return { isAuth: false, user: null, source: null };
   }, [user]);
 
-  // Navigation by role
-  const navigateByRole = (userRole, source = 'login') => {
+  // Navigation by role WITH userId
+  const navigateByRole = (userRole, userId, source = 'login') => {
     const roleRoutes = {
       SuperAdmin: '/admin',
       Admin: '/admin',
@@ -83,10 +84,14 @@ const LoginPage = () => {
     };
     
     const route = roleRoutes[userRole] || '/homepage';
-    console.log(`🔄 Navigating user with role "${userRole}" to: ${route} (source: ${source})`);
+    console.log(`🔄 Navigating user with role "${userRole}" and ID "${userId}" to: ${route} (source: ${source})`);
     
     const intendedRoute = location.state?.from?.pathname;
-    const finalRoute = intendedRoute && intendedRoute !== '/login' ? intendedRoute : route;
+    let finalRoute = intendedRoute && intendedRoute !== '/login' ? intendedRoute : route;
+    
+    // Add userId to the route
+    const separator = finalRoute.includes('?') ? '&' : '?';
+    finalRoute = `${finalRoute}${separator}userId=${userId}`;
     
     navigate(finalRoute, { replace: true });
   };
@@ -100,7 +105,13 @@ const LoginPage = () => {
       
       if (authStatus.isAuth) {
         console.log(`✅ User already authenticated (${authStatus.source}):`, authStatus.user);
-        navigateByRole(authStatus.user.role || authStatus.user.Role, 'redirect');
+        const userId = authStatus.user.id || getCookie('userId');
+        if (userId) {
+          navigateByRole(authStatus.user.role || authStatus.user.Role, userId, 'redirect');
+        } else {
+          console.warn('No user ID found, staying on login page');
+          setIsCheckingAuth(false);
+        }
         return;
       }
       
@@ -140,17 +151,24 @@ const LoginPage = () => {
         const data = await res.json();
 
         const accessToken = data.accessToken || data.token;
-        const user = data.user || {
+        const refreshToken = data.refreshToken;
+        const userData = data.user || {
           email: data.email || 'google-user@example.com',
-          id: data.userId || null,
+          id: data.userId || data.id || null,
+          role: data.role || 'Patient'
         };
 
         if (!accessToken) {
           throw new Error('Authentication failed. Please try again.');
         }
 
-        const loginResult = await login(accessToken, user);
-        navigateByRole(loginResult.role, 'google-login');
+        const loginResult = await login(accessToken, refreshToken, userData);
+        
+        if (loginResult.success && loginResult.userId) {
+          navigateByRole(loginResult.role, loginResult.userId, 'google-login');
+        } else {
+          setGoogleError('Login succeeded but user ID is missing. Please try email login.');
+        }
       } catch (error) {
         console.error('Google login error:', error);
         setGoogleError('Google authentication failed. Please try email login.');
@@ -260,7 +278,6 @@ const LoginPage = () => {
       });
 
       if (!response.ok) {
-        // Handle different error scenarios with user-friendly messages
         if (response.status === 500) {
           setErrors({ form: 'Service temporarily unavailable. Please try again later.' });
           return;
@@ -281,7 +298,6 @@ const LoginPage = () => {
           return;
         }
         
-        // Generic error for other status codes
         setErrors({ form: 'Login failed. Please try again.' });
         return;
       }
@@ -290,10 +306,20 @@ const LoginPage = () => {
 
       if (data.accessToken) {
         const accessToken = data.accessToken;
-        const user = data.user || { email: email.trim(), id: data.userId };
+        const refreshToken = data.refreshToken;
+        const userData = data.user || { 
+          email: email.trim(), 
+          id: data.userId || data.id,
+          role: data.role
+        };
 
-        const loginResult = await login(accessToken, user);
-        navigateByRole(loginResult.role, 'form-login');
+        const loginResult = await login(accessToken, refreshToken, userData);
+        
+        if (loginResult.success && loginResult.userId) {
+          navigateByRole(loginResult.role, loginResult.userId, 'form-login');
+        } else {
+          setErrors({ form: 'Login succeeded but user ID is missing. Please contact support.' });
+        }
       } else if (data.message?.includes('Email not confirmed') || response.status === 403) {
         navigate('/verify-otp', { state: { email: email.trim() } });
       } else {
@@ -459,7 +485,6 @@ const LoginPage = () => {
                   {errors.email && <div className="invalid-feedback">{errors.email}</div>}
                 </div>
                 
-                {/* Enhanced Password Field with Fixed Icon Position */}
                 <div className="mb-4">
                   <label
                     htmlFor="password"
@@ -487,7 +512,6 @@ const LoginPage = () => {
                       }}
                     />
                     
-                    {/* Fixed Password Toggle Button */}
                     <button
                       type="button"
                       className="password-toggle-btn"
@@ -710,19 +734,15 @@ const LoginPage = () => {
         </div>
       )}
       
+      {/* Keep all your existing styles */}
       <style>{`
-        /* Password input wrapper for proper positioning */
         .password-input-wrapper {
           position: relative;
           width: 100%;
         }
-
-        /* Password input field */
         .password-input {
           width: 100%;
         }
-
-        /* Fixed Password Toggle Button */
         .password-toggle-btn {
           position: absolute;
           top: 50%;
@@ -740,78 +760,60 @@ const LoginPage = () => {
           z-index: 5;
           outline: none;
         }
-
         .password-toggle-btn:hover {
           color: #0d6efd;
         }
-
         .password-toggle-btn:focus {
           outline: 2px solid #0d6efd;
           outline-offset: 2px;
           border-radius: 4px;
         }
-
         .password-toggle-btn svg {
           width: 18px;
           height: 18px;
         }
-
-        /* Enhanced form control styles */
         .form-control:focus {
           border-color: #0d6efd !important;
           box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15) !important;
           background-color: rgba(240, 245, 255, 0.95) !important;
         }
-        
         .form-control.is-invalid {
           border-color: #dc3545 !important;
           padding-right: 2.75rem !important;
         }
-        
         .form-control.is-invalid:focus {
           border-color: #dc3545 !important;
           box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15) !important;
         }
-
-        /* Enhanced button styles */
         .btn:focus {
           box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
         }
-
-        /* Responsive adjustments */
         @media (max-width: 767.98px) {
           .col-md-6 {
             padding: 1rem !important;
           }
-          
           .card {
             margin: 1rem 0 !important;
             border-radius: 12px !important;
           }
-          
           h3 {
             font-size: 1.4rem !important;
           }
-          
           .form-control {
-            font-size: 16px !important; /* Prevents zoom on iOS */
+            font-size: 16px !important;
           }
-          
           .btn {
             padding: 0.875rem 1rem !important;
             font-size: 1rem !important;
           }
-
           .password-toggle-btn {
             right: 10px;
           }
         }
-
         @media (max-width: 575.98px) {
           .container-fluid {
             padding: 0 !important;
           }
-          
           .card {
             border-radius: 0 !important;
             border-left: none !important;
@@ -821,55 +823,40 @@ const LoginPage = () => {
             flex-direction: column !important;
             justify-content: center !important;
           }
-          
           .px-4 {
             padding-left: 1.5rem !important;
             padding-right: 1.5rem !important;
           }
         }
-
-        /* Animation for smooth transitions */
-        .form-control,
-        .btn {
+        .form-control, .btn {
           transition: all 0.2s ease-in-out !important;
         }
-
-        /* Google Sign-In button customization */
         #google-signin-button-container iframe {
           border-radius: 8px !important;
         }
-
-        /* Loading overlay improvements */
         .position-fixed {
           backdrop-filter: blur(3px) !important;
           -webkit-backdrop-filter: blur(3px) !important;
         }
-
-        /* Alert improvements */
         .alert {
           border-radius: 8px !important;
           border-width: 1px !important;
         }
-
         .alert-danger {
           background-color: rgba(220, 53, 69, 0.1) !important;
           border-color: rgba(220, 53, 69, 0.3) !important;
           color: #721c24 !important;
         }
-
         .alert-info {
           background-color: rgba(13, 110, 253, 0.1) !important;
           border-color: rgba(13, 110, 253, 0.3) !important;
           color: #084298 !important;
         }
-
         .alert-warning {
           background-color: rgba(255, 193, 7, 0.1) !important;
           border-color: rgba(255, 193, 7, 0.3) !important;
           color: #664d03 !important;
         }
-
-        /* Enhanced accessibility */
         .visually-hidden {
           position: absolute !important;
           width: 1px !important;
@@ -881,126 +868,86 @@ const LoginPage = () => {
           white-space: nowrap !important;
           border: 0 !important;
         }
-
-        /* Focus improvements for better accessibility */
-        .form-control:focus,
-        .btn:focus,
-        .password-toggle-btn:focus {
+        .form-control:focus, .btn:focus, .password-toggle-btn:focus {
           outline: none !important;
         }
-
-        /* Spinner improvements */
         .spinner-border {
           animation: spinner-border 0.75s linear infinite !important;
         }
-
         @keyframes spinner-border {
           to {
             transform: rotate(360deg) !important;
           }
         }
-
-        /* Link hover effects */
         a:hover {
           transition: color 0.2s ease-in-out !important;
         }
-
-        /* Custom scrollbar for better UX */
         .container-fluid::-webkit-scrollbar {
           width: 8px;
         }
-
         .container-fluid::-webkit-scrollbar-track {
           background: #f1f1f1;
           border-radius: 4px;
         }
-
         .container-fluid::-webkit-scrollbar-thumb {
           background: #c1c1c1;
           border-radius: 4px;
         }
-
         .container-fluid::-webkit-scrollbar-thumb:hover {
           background: #a8a8a8;
         }
-
-        /* Print styles */
         @media print {
           .container-fluid {
             background: white !important;
           }
-          
           .card {
             border: 1px solid #000 !important;
             box-shadow: none !important;
           }
-          
-          .btn,
-          #google-signin-button-container,
-          .position-fixed {
+          .btn, #google-signin-button-container, .position-fixed {
             display: none !important;
           }
         }
-
-        /* High contrast mode support */
         @media (prefers-contrast: high) {
           .form-control {
             border-width: 2px !important;
           }
-          
           .btn {
             border-width: 2px !important;
           }
         }
-
-        /* Reduced motion support */
         @media (prefers-reduced-motion: reduce) {
-          .form-control,
-          .btn,
-          a,
-          .spinner-border,
-          .password-toggle-btn {
+          .form-control, .btn, a, .spinner-border, .password-toggle-btn {
             transition: none !important;
             animation: none !important;
           }
         }
-
-        /* Dark mode support (if needed) */
         @media (prefers-color-scheme: dark) {
           .text-muted {
             color: #8e8e93 !important;
           }
         }
-
-        /* Invalid feedback positioning fix */
         .invalid-feedback {
           display: block;
           margin-top: 0.25rem;
           font-size: 0.875em;
           color: #dc3545;
         }
-
-        /* Ensure password field has proper spacing for icon */
         .password-input-wrapper .form-control {
           padding-right: 2.75rem !important;
         }
-
-        /* Additional fixes for mobile devices */
         @media (max-width: 480px) {
           .password-toggle-btn {
             right: 8px;
             padding: 8px;
           }
-
           .password-toggle-btn svg {
             width: 16px;
             height: 16px;
           }
-
           h3 {
             font-size: 1.25rem !important;
           }
-
           .form-label {
             font-size: 0.85rem !important;
           }

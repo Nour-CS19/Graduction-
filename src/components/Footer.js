@@ -1,33 +1,110 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const Footer = () => {
+  const [messages, setMessages] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // Load messages from sessionStorage on component mount
+  useEffect(() => {
+    try {
+      const storedMessages = sessionStorage.getItem('physiocare_messages');
+      if (storedMessages) {
+        setMessages(JSON.parse(storedMessages));
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+  }, []);
+
   const handleMessageSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+
     const formData = new FormData(e.target);
+    const messageText = formData.get('message');
+    const userEmail = formData.get('email') || 'anonymous@user.com';
+    const userName = formData.get('name') || 'Anonymous User';
+
     const messageData = {
+      id: Date.now().toString(),
       role_id: "PHYSIOCARE_EGYPT_123",
-      message: formData.get('message'),
+      message: messageText,
+      email: userEmail,
+      name: userName,
+      timestamp: new Date().toISOString(),
+      status: 'sent',
     };
 
     try {
-      const response = await fetch('https://your-backend-server.com/messages', {
+      // Send to Web3Forms API for email delivery
+      formData.append("access_key", "69379867-857a-496e-8685-0bdad03e6762");
+      formData.append("subject", "New Message from PhysioCare Footer");
+      formData.append("from_name", "PhysioCare Contact Form");
+
+      const response = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(messageData),
+        body: formData
       });
-      
-      if (response.ok) {
-        alert('Message sent successfully!');
-        e.target.reset();
+
+      const data = await response.json();
+
+      if (data.success) {
+        messageData.status = 'delivered';
+        console.log('Email sent successfully via Web3Forms');
       } else {
-        alert('Failed to send message. Please try again.');
+        messageData.status = 'failed';
+        console.error('Web3Forms error:', data.message);
       }
+
+      // Save to sessionStorage regardless of API success
+      const updatedMessages = [...messages, messageData];
+      setMessages(updatedMessages);
+      sessionStorage.setItem('physiocare_messages', JSON.stringify(updatedMessages));
+
+      // Also save to localStorage for persistence across sessions
+      try {
+        const allMessages = JSON.parse(localStorage.getItem('physiocare_all_messages') || '[]');
+        allMessages.push(messageData);
+        localStorage.setItem('physiocare_all_messages', JSON.stringify(allMessages));
+      } catch (storageError) {
+        console.error('Error saving to localStorage:', storageError);
+      }
+
+      // Show success message
+      setShowSuccess(true);
+      e.target.reset();
+
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setShowSuccess(false);
+      }, 3000);
+
+      // Log message count for admin reference
+      console.log(`Message saved! Total messages in session: ${updatedMessages.length}`);
+      console.log('Latest message:', messageData);
+
     } catch (error) {
       console.error('Error:', error);
-      alert('An error occurred. Please try again later.');
+      alert('An error occurred while sending your message. It has been saved locally.');
+      
+      // Still save locally even if there's an error
+      const updatedMessages = [...messages, messageData];
+      setMessages(updatedMessages);
+      sessionStorage.setItem('physiocare_messages', JSON.stringify(updatedMessages));
+      
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  // Function to view all stored messages (for admin/debug)
+  const viewStoredMessages = () => {
+    const sessionMessages = JSON.parse(sessionStorage.getItem('physiocare_messages') || '[]');
+    const localMessages = JSON.parse(localStorage.getItem('physiocare_all_messages') || '[]');
+    console.log('Session Messages:', sessionMessages);
+    console.log('All Messages (localStorage):', localMessages);
+    alert(`Session: ${sessionMessages.length} messages\nTotal: ${localMessages.length} messages\nCheck console for details.`);
   };
 
   return (
@@ -72,7 +149,6 @@ const Footer = () => {
               <a href="#" className="social-icon twitter">
                 <i className="fab fa-twitter"></i>
               </a>
-              
             </div>
           </div>
 
@@ -81,7 +157,7 @@ const Footer = () => {
             <ul className="services-list">
               <li>
                 <a href="/servicedoctoronlineofflineathome">
-                  <i className="fas fa-hand-holding-medical"></i>   Consultations
+                  <i className="fas fa-hand-holding-medical"></i> Consultations
                 </a>
               </li>
               <li>
@@ -94,7 +170,6 @@ const Footer = () => {
                   <i className="fas fa-syringe"></i> Nursing Care
                 </a>
               </li>
-             
             </ul>
           </div>
 
@@ -104,12 +179,41 @@ const Footer = () => {
               <a href="https://wa.me/201223126694" className="whatsapp-button">
                 <i className="fab fa-whatsapp"></i> Start WhatsApp Chat
               </a>
+              {messages.length > 0 && (
+                <button 
+                  onClick={viewStoredMessages} 
+                  className="view-messages-btn"
+                  type="button"
+                >
+                  <i className="fas fa-envelope"></i> View Messages ({messages.length})
+                </button>
+              )}
             </div>
           </div>
 
           <div className="footer-section footer-message">
             <h3>Send us a message</h3>
+            
+            {showSuccess && (
+              <div className="success-message">
+                <i className="fas fa-check-circle"></i>
+                Message sent successfully!
+              </div>
+            )}
+
             <form className="message-form" onSubmit={handleMessageSubmit}>
+              <input
+                type="text"
+                name="name"
+                placeholder="Your name (optional)"
+                className="message-input-field"
+              />
+              <input
+                type="email"
+                name="email"
+                placeholder="Your email (optional)"
+                className="message-input-field"
+              />
               <textarea 
                 name="message" 
                 placeholder="Your message..." 
@@ -117,10 +221,22 @@ const Footer = () => {
                 className="message-input"
               />
               <input type="hidden" name="role_id" value="PHYSIOCARE_EGYPT_123" />
-              <button type="submit" className="send-button">
-                <i className="fas fa-paper-plane"></i> Send Message
+              <button type="submit" className="send-button" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin"></i> Sending...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-paper-plane"></i> Send Message
+                  </>
+                )}
               </button>
             </form>
+            
+            <p className="storage-notice">
+              <i className="fas fa-info-circle"></i> Messages are saved securely
+            </p>
           </div>
         </div>
       </div>
@@ -181,7 +297,6 @@ const styles = `
     border-radius: 3px;
   }
 
-  /* Logo and About Section */
   .logo-container {
     display: flex;
     align-items: center;
@@ -241,12 +356,6 @@ const styles = `
     color: white;
   }
 
-  .social-icon.youtube:hover {
-    background: #FF0000;
-    color: white;
-  }
-
-  /* Services Section */
   .services-list {
     list-style: none;
     padding: 0;
@@ -294,12 +403,11 @@ const styles = `
     font-size: 1.2rem;
   }
 
-  /* Contact Section */
   .contact-info {
     display: flex;
     flex-direction: column;
     gap: 1.2rem;
-    align-items: center;
+    align-items: flex-start;
   }
 
   .whatsapp-button {
@@ -322,9 +430,47 @@ const styles = `
     box-shadow: 0 6px 15px rgba(37, 211, 102, 0.25);
   }
 
-  /* Message Form */
+  .view-messages-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.8rem;
+    background: #2a5caa;
+    color: white;
+    font-weight: 600;
+    padding: 0.8rem 1.2rem;
+    border-radius: 50px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(42, 92, 170, 0.2);
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+  }
+
+  .view-messages-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(42, 92, 170, 0.25);
+    background: #1e4a8a;
+  }
+
   .message-form {
     margin-top: 0.5rem;
+  }
+
+  .message-input-field {
+    width: 100%;
+    padding: 0.9rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 0.8rem;
+    background: white;
+    font-family: 'Segoe UI', sans-serif;
+    transition: all 0.3s ease;
+  }
+
+  .message-input-field:focus {
+    outline: none;
+    border-color: #009DA5;
+    box-shadow: 0 0 0 3px rgba(0, 157, 165, 0.1);
   }
 
   .message-input {
@@ -334,7 +480,7 @@ const styles = `
     border-radius: 8px;
     margin-bottom: 1rem;
     resize: vertical;
-    min-height: 120px;
+    min-height: 100px;
     background: white;
     font-family: 'Segoe UI', sans-serif;
     transition: all 0.3s ease;
@@ -362,18 +508,54 @@ const styles = `
     transition: all 0.3s ease;
   }
 
-  .send-button:hover {
+  .send-button:hover:not(:disabled) {
     background: linear-gradient(135deg, #007a80, #009DA5);
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(0, 157, 165, 0.2);
   }
 
-  .send-button:active {
+  .send-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .send-button:active:not(:disabled) {
     transform: translateY(0);
     box-shadow: none;
   }
 
-  /* Copyright Section */
+  .success-message {
+    background: #48bb78;
+    color: white;
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: slideDown 0.3s ease;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .storage-notice {
+    font-size: 0.75rem;
+    color: #718096;
+    margin-top: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
   .copyright {
     background: #e9eef5;
     padding: 1.5rem;

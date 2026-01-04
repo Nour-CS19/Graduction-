@@ -1,11 +1,11 @@
-import React, { lazy, Suspense } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import React, { lazy, Suspense, useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./Pages/AuthPage";
 import ErrorBoundary from "./ErrorBoundary";
 import VerifyOTPPage from './Pages/VerifyOTPPage';
 import NurseDashboardLayout from './DashBoardNurse/DashBoardNurse';
 
-// Lazy-loaded components
+// Lazy imports
 const ResetPasswordForPatient = lazy(() => import("./components/ResetPasswordForPatient").catch(() => ({ default: () => <div>Reset password</div> })));
 const MedicalRecordsForPatient = lazy(() => import("./components/MedicalRecoredsForPatient").catch(() => ({ default: () => <div>MedicalRecoredsForPatient failed to load</div> })));
 const PasswordResetComponent = lazy(() => import("./components/PasswordResetComponent").catch(() => ({ default: () => <div>Reset password</div> })));
@@ -126,7 +126,122 @@ const DashBoardDoctorOffical = lazy(() => import("./DashDdddd").catch(() => ({ d
 const Dashboarddoctorww = lazy(() => import("./DashDoctor").catch(() => ({ default: () => <div>DashDoctor failed to load</div> })));
 const ChatAppforLabAndNurseAndDoctor = lazy(() => import("./DashboardDoctor/Chat").catch(() => ({ default: () => <div>Chat failed to load</div> })));
 
-// Nurse Logout Component
+const ProtectedRoute = ({ children, allowedRoles, requiresAuth = true }) => {
+  const { user, isLoading, validateUserId, getEncodedUserId } = useAuth();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const urlUserId = searchParams.get('userId');
+  const accessToken = localStorage.getItem('accessToken');
+  const isAuthenticated = !!user && !!accessToken;
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    // Not authenticated - redirect to login
+    if (requiresAuth && !isAuthenticated) {
+      navigate('/login', { state: { from: location }, replace: true });
+      return;
+    }
+
+    // Authenticated user checks
+    if (isAuthenticated && user?.id) {
+      const validEncodedId = getEncodedUserId();
+
+      // No userId in URL or invalid userId
+      if (!urlUserId || !validateUserId(urlUserId)) {
+        // Redirect with valid userId
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.set('userId', validEncodedId);
+        navigate(`${location.pathname}?${newSearchParams.toString()}`, { replace: true });
+        return;
+      }
+
+      // Check role authorization
+      if (allowedRoles && !allowedRoles.includes(user.role)) {
+        console.warn(`Unauthorized role: ${user.role}`);
+        navigate('/login', { replace: true });
+        return;
+      }
+    }
+  }, [isLoading, isAuthenticated, user?.id, user?.role, urlUserId, location.pathname, navigate, searchParams, validateUserId, getEncodedUserId, allowedRoles, requiresAuth]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
+        <div className="text-center">
+          <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <h5 className="text-muted">Loading...</h5>
+        </div>
+      </div>
+    );
+  }
+
+  // Not authenticated
+  if (requiresAuth && !isAuthenticated) {
+    return null; // Will be redirected by useEffect
+  }
+
+  // Invalid or missing userId
+  if (requiresAuth && isAuthenticated && (!urlUserId || !validateUserId(urlUserId))) {
+    return null; // Will be redirected by useEffect
+  }
+
+  // Wrong role
+  if (requiresAuth && allowedRoles && !allowedRoles.includes(user.role)) {
+    return null; // Will be redirected by useEffect
+  }
+
+  return children;
+};
+
+export const useNavigateWithUser = () => {
+  const { user, getEncodedUserId } = useAuth();
+  const navigate = useNavigate();
+
+  return (path, options = {}) => {
+    const encodedId = getEncodedUserId();
+    
+    if (!encodedId) {
+      console.warn('Cannot navigate: user ID not available');
+      return;
+    }
+
+    const [pathname, search] = path.split('?');
+    const params = new URLSearchParams(search || '');
+    params.set('userId', encodedId);
+    const finalPath = `${pathname}?${params.toString()}`;
+    navigate(finalPath, options);
+  };
+};
+
+// Public pages with decoy IDs for security
+const PublicPageWrapper = ({ Component }) => {
+  const { getDecoyId } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    // Add a decoy userId to public pages if not present
+    if (!searchParams.get('userId')) {
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.set('userId', getDecoyId());
+      navigate(`${location.pathname}?${newSearchParams.toString()}`, { replace: true });
+    }
+  }, [searchParams, location.pathname, navigate, getDecoyId]);
+
+  return <Component />;
+};
+
+const NavbarWrapper = ({ Component }) => {
+  const navigateWithUser = useNavigateWithUser();
+  return <Component onNavigate={navigateWithUser} />;
+};
+
 const NurseLogout = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -142,673 +257,137 @@ const NurseLogout = () => {
 
   React.useEffect(() => {
     handleLogout();
-  }, [logout, navigate]);
+  }, []);
 
   return null;
-};
-
-// Protected Route Component
-const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user } = useAuth();
-  const accessToken = localStorage.getItem('accessToken');
-  const isAuthenticated = !!user && !!accessToken;
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-};
-
-// Wrapper Component for Navbar
-const NavbarWrapper = ({ Component }) => {
-  const navigate = useNavigate();
-  const handleNavigate = (path) => {
-    navigate(path);
-  };
-  return <Component onNavigate={handleNavigate} />;
 };
 
 const App = () => {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={
+          <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
+            <div className="text-center">
+              <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <h5 className="text-muted">Loading application...</h5>
+            </div>
+          </div>
+        }>
           <Routes>
-            {/* Public Routes */}
+            {/* Public routes with decoy IDs */}
             <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/homepage" element={<HomePage />} />
-            <Route path="/verify-otp" element={<VerifyOTPPage />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/register/page2" element={<ProfilePage />} />
-            <Route path="/registration-success" element={<SuccessPage />} />
-            <Route path="/forgot-password" element={<PasswordResetComponent />} />
-            <Route path="/settings" element={<PasswordResetComponent />} />
-            <Route path="/AboutUs" element={<AboutUs />} />
-            <Route path="/HeroSection" element={<HeroSection />} />
-            <Route path="/ContactUsService" element={<ServiceContactUs />} />
-            <Route path="/land" element={<LandingPage />} />
-            <Route path="/travel" element={<TravelComponent />} />
-            <Route path="/contact" element={<ContactUs />} />
-            <Route path="/footer" element={<Footer2 />} />
+            <Route path="/login" element={<PublicPageWrapper Component={Login} />} />
+            <Route path="/homepage" element={<PublicPageWrapper Component={HomePage} />} />
+            <Route path="/verify-otp" element={<PublicPageWrapper Component={VerifyOTPPage} />} />
+            <Route path="/register" element={<PublicPageWrapper Component={Register} />} />
+            <Route path="/register/page2" element={<PublicPageWrapper Component={ProfilePage} />} />
+            <Route path="/registration-success" element={<PublicPageWrapper Component={SuccessPage} />} />
+            <Route path="/forgot-password" element={<PublicPageWrapper Component={PasswordResetComponent} />} />
+            <Route path="/AboutUs" element={<PublicPageWrapper Component={AboutUs} />} />
+            <Route path="/HeroSection" element={<PublicPageWrapper Component={HeroSection} />} />
+            <Route path="/ContactUsService" element={<PublicPageWrapper Component={ServiceContactUs} />} />
+            <Route path="/land" element={<PublicPageWrapper Component={LandingPage} />} />
+            <Route path="/travel" element={<PublicPageWrapper Component={TravelComponent} />} />
+            <Route path="/contact" element={<PublicPageWrapper Component={ContactUs} />} />
+            <Route path="/footer" element={<PublicPageWrapper Component={Footer2} />} />
             <Route path="/nav" element={<NavbarWrapper Component={NavbarPublic} />} />
             <Route path="/navvv" element={<NavbarWrapper Component={NavPublic} />} />
-            <Route path="/Maps" element={<Maps />} />
-            <Route path="/hallasks" element={<AskedPage />} />
-            <Route path="/paginations" element={<Paginations />} />
-            <Route path="/NavBarForgetPassword" element={<NavBarForgetPassword />} />
-            {/* Patient-Accessible Routes */}
-            <Route
-              path="/video-advices"
-              element={
-                <ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}>
-                  <VideosAdvices />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/Chat"
-              element={
-                <ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}>
-                  <ChatAppforLabAndNurseAndDoctor />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/resetpasswordforpatient"
-              element={
-                <ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}>
-                  <ResetPasswordForPatient />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/medical-recoreds"
-              element={
-                <ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}>
-                  <MedicalRecordsForPatient />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/doctor-appointment"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <DoctorAppointment />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/appointments-list"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <AppointmentsList />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/doctor-payment"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <DoctorPayment />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/servicedoctoronlineofflineathome"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <DoctorASService />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/servicedoctoronlineofflineathome/online"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <OnlineConsultantion />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AppointmentPatientOfflineInDoctors"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <AppointmentsPatientToDoctorOffline />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AppointmentPatientInDoctorsAtHome"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <AppointmentsPatientToDoctorAtHome />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AppointmentForDoctorsOnline"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <AppointmentForDoctorsOnline />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AppointmentsNurseForPatients"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <AppointmentsNurseForPatients />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AppointmentForLabFromPatient"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <AppointmentForLabFromPatient />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/servicedoctoronlineofflineathome/offline"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <OfflineConsultantion />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/servicedoctoronlineofflineathome/athome"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <AtHomeConsultantion />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/Chats"
-              element={
-                <ProtectedRoute allowedRoles={["Patient", "Doctor", "Laboratory", "Admin", "SuperAdmin", "Nurse"]}>
-                  <ChatApp />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse1"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <Nurse1 />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse2"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <Nurse2 />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/lab1"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <Labratory1 />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/lab2"
-              element={
-                <ProtectedRoute allowedRoles={["Patient"]}>
-                  <Labratory2 />
-                </ProtectedRoute>
-              }
-            />
-            {/* Doctor Dashboard Routes */}
-            <Route
-              path="/DashboardDoctorOfficial"
-              element={
-                <ProtectedRoute allowedRoles={["Doctor"]}>
-                  <DashBoardDoctorOffical />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AcceptReject"
-              element={
-                <ProtectedRoute allowedRoles={["Doctor"]}>
-                  <AcceptReject />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AppointmentAtHome"
-              element={
-                <ProtectedRoute allowedRoles={["Doctor"]}>
-                  <AppointmentAtHome />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AppointmentsOnline"
-              element={
-                <ProtectedRoute allowedRoles={["Doctor"]}>
-                  <AppointmentsOnline />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AppointmentAtClinic"
-              element={
-                <ProtectedRoute allowedRoles={["Doctor"]}>
-                  <AppointmentAtClinic />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/Clinics"
-              element={
-                <ProtectedRoute allowedRoles={["Doctor"]}>
-                  <Clinicss />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/DoctorClinicManagement"
-              element={
-                <ProtectedRoute allowedRoles={["Doctor"]}>
-                  <DoctorClinicManagementAtAll />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/FetchAll"
-              element={
-                <ProtectedRoute allowedRoles={["Doctor"]}>
-                  <FetchAll />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/FetchAllAtClinic"
-              element={
-                <ProtectedRoute allowedRoles={["Doctor"]}>
-                  <FetchAllAtClinic />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/FetchAllAtOnline"
-              element={
-                <ProtectedRoute allowedRoles={["Doctor"]}>
-                  <FetchAllAtOnline />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/DashboardDoctor"
-              element={
-                <ProtectedRoute allowedRoles={["Doctor"]}>
-                  <Dashboarddoctorww />
-                </ProtectedRoute>
-              }
-            />
-            {/* Laboratory Dashboard Routes */}
-            <Route
-              path="/DashBoardLaboratoryOfficial"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <DashBoardLaboratoryOfficial />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AcceptBook"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <AcceptBook />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/AddAnalysis"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <AddAnalysis />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/CreateAnalysisAtCities"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <CreateAnalysisAtCities />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/CreateAppointmentAtCity"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <CreateAppointmentAtCity />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/GetAllAnalysis"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <GetAllAnalysis />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/GETAppointmentAtCity"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <GETAppointmentAtCity />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/PatientBookLabAllLab"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <PatientBookLabAllLab />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/EditProfileForLab"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <EditProfileForLab />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/ForgetPasswordForLab"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <ForgetPasswordForLab />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/ServicesLab"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <ServicesLab />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/lab-dashboard/appointments"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <AppointmantLab />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/lab-dashboard/consultations"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <ConsultantionLab />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/lab-dashboard/dashboard"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <Boss />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/lab-dashboard/patients"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <PatientLab />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/lab-dashboard/profile"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <ProfileLab />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/lab-dashboard/settings"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <SettingLab />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/subscribeLab"
-              element={
-                <ProtectedRoute allowedRoles={["Laboratory"]}>
-                  <SubscribeLab />
-                </ProtectedRoute>
-              }
-            />
-            {/* Nurse Dashboard Routes */}
+            <Route path="/Maps" element={<PublicPageWrapper Component={Maps} />} />
+            <Route path="/hallasks" element={<PublicPageWrapper Component={AskedPage} />} />
+            <Route path="/paginations" element={<PublicPageWrapper Component={Paginations} />} />
+            <Route path="/NavBarForgetPassword" element={<PublicPageWrapper Component={NavBarForgetPassword} />} />
+
+            {/* Protected routes with real user IDs */}
+            <Route path="/video-advices" element={<ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}><VideosAdvices /></ProtectedRoute>} />
+            <Route path="/Chat" element={<ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}><ChatAppforLabAndNurseAndDoctor /></ProtectedRoute>} />
+            <Route path="/resetpasswordforpatient" element={<ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}><ResetPasswordForPatient /></ProtectedRoute>} />
+            <Route path="/medical-recoreds" element={<ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}><MedicalRecordsForPatient /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute allowedRoles={["Patient", "Doctor", "Nurse", "Laboratory", "Admin", "SuperAdmin"]}><Profile /></ProtectedRoute>} />
+            
+            {/* Patient routes */}
+            <Route path="/doctor-appointment" element={<ProtectedRoute allowedRoles={["Patient"]}><DoctorAppointment /></ProtectedRoute>} />
+            <Route path="/appointments-list" element={<ProtectedRoute allowedRoles={["Patient"]}><AppointmentsList /></ProtectedRoute>} />
+            <Route path="/doctor-payment" element={<ProtectedRoute allowedRoles={["Patient"]}><DoctorPayment /></ProtectedRoute>} />
+            <Route path="/servicedoctoronlineofflineathome" element={<ProtectedRoute allowedRoles={["Patient"]}><DoctorASService /></ProtectedRoute>} />
+            <Route path="/servicedoctoronlineofflineathome/online" element={<ProtectedRoute allowedRoles={["Patient"]}><OnlineConsultantion /></ProtectedRoute>} />
+            <Route path="/AppointmentPatientOfflineInDoctors" element={<ProtectedRoute allowedRoles={["Patient"]}><AppointmentsPatientToDoctorOffline /></ProtectedRoute>} />
+            <Route path="/AppointmentPatientInDoctorsAtHome" element={<ProtectedRoute allowedRoles={["Patient"]}><AppointmentsPatientToDoctorAtHome /></ProtectedRoute>} />
+            <Route path="/AppointmentForDoctorsOnline" element={<ProtectedRoute allowedRoles={["Patient"]}><AppointmentForDoctorsOnline /></ProtectedRoute>} />
+            <Route path="/AppointmentsNurseForPatients" element={<ProtectedRoute allowedRoles={["Patient"]}><AppointmentsNurseForPatients /></ProtectedRoute>} />
+            <Route path="/AppointmentForLabFromPatient" element={<ProtectedRoute allowedRoles={["Patient"]}><AppointmentForLabFromPatient /></ProtectedRoute>} />
+            <Route path="/servicedoctoronlineofflineathome/offline" element={<ProtectedRoute allowedRoles={["Patient"]}><OfflineConsultantion /></ProtectedRoute>} />
+            <Route path="/servicedoctoronlineofflineathome/athome" element={<ProtectedRoute allowedRoles={["Patient"]}><AtHomeConsultantion /></ProtectedRoute>} />
+            <Route path="/Chats" element={<ProtectedRoute allowedRoles={["Patient", "Doctor", "Laboratory", "Admin", "SuperAdmin", "Nurse"]}><ChatApp /></ProtectedRoute>} />
+            <Route path="/nurse1" element={<ProtectedRoute allowedRoles={["Patient"]}><Nurse1 /></ProtectedRoute>} />
+            <Route path="/nurse2" element={<ProtectedRoute allowedRoles={["Patient"]}><Nurse2 /></ProtectedRoute>} />
+            <Route path="/lab1" element={<ProtectedRoute allowedRoles={["Patient"]}><Labratory1 /></ProtectedRoute>} />
+            <Route path="/lab2" element={<ProtectedRoute allowedRoles={["Patient"]}><Labratory2 /></ProtectedRoute>} />
+
+            {/* Doctor routes */}
+            <Route path="/DashboardDoctorOfficial" element={<ProtectedRoute allowedRoles={["Doctor"]}><DashBoardDoctorOffical /></ProtectedRoute>} />
+            <Route path="/AcceptReject" element={<ProtectedRoute allowedRoles={["Doctor"]}><AcceptReject /></ProtectedRoute>} />
+            <Route path="/AppointmentAtHome" element={<ProtectedRoute allowedRoles={["Doctor"]}><AppointmentAtHome /></ProtectedRoute>} />
+            <Route path="/AppointmentsOnline" element={<ProtectedRoute allowedRoles={["Doctor"]}><AppointmentsOnline /></ProtectedRoute>} />
+            <Route path="/AppointmentAtClinic" element={<ProtectedRoute allowedRoles={["Doctor"]}><AppointmentAtClinic /></ProtectedRoute>} />
+            <Route path="/Clinics" element={<ProtectedRoute allowedRoles={["Doctor"]}><Clinicss /></ProtectedRoute>} />
+            <Route path="/DoctorClinicManagement" element={<ProtectedRoute allowedRoles={["Doctor"]}><DoctorClinicManagementAtAll /></ProtectedRoute>} />
+            <Route path="/FetchAll" element={<ProtectedRoute allowedRoles={["Doctor"]}><FetchAll /></ProtectedRoute>} />
+            <Route path="/FetchAllAtClinic" element={<ProtectedRoute allowedRoles={["Doctor"]}><FetchAllAtClinic /></ProtectedRoute>} />
+            <Route path="/FetchAllAtOnline" element={<ProtectedRoute allowedRoles={["Doctor"]}><FetchAllAtOnline /></ProtectedRoute>} />
+            <Route path="/DashboardDoctor" element={<ProtectedRoute allowedRoles={["Doctor"]}><Dashboarddoctorww /></ProtectedRoute>} />
+
+            {/* Laboratory routes */}
+            <Route path="/DashBoardLaboratoryOfficial" element={<ProtectedRoute allowedRoles={["Laboratory"]}><DashBoardLaboratoryOfficial /></ProtectedRoute>} />
+            <Route path="/AcceptBook" element={<ProtectedRoute allowedRoles={["Laboratory"]}><AcceptBook /></ProtectedRoute>} />
+            <Route path="/AddAnalysis" element={<ProtectedRoute allowedRoles={["Laboratory"]}><AddAnalysis /></ProtectedRoute>} />
+            <Route path="/CreateAnalysisAtCities" element={<ProtectedRoute allowedRoles={["Laboratory"]}><CreateAnalysisAtCities /></ProtectedRoute>} />
+            <Route path="/CreateAppointmentAtCity" element={<ProtectedRoute allowedRoles={["Laboratory"]}><CreateAppointmentAtCity /></ProtectedRoute>} />
+            <Route path="/GetAllAnalysis" element={<ProtectedRoute allowedRoles={["Laboratory"]}><GetAllAnalysis /></ProtectedRoute>} />
+            <Route path="/GETAppointmentAtCity" element={<ProtectedRoute allowedRoles={["Laboratory"]}><GETAppointmentAtCity /></ProtectedRoute>} />
+            <Route path="/PatientBookLabAllLab" element={<ProtectedRoute allowedRoles={["Laboratory"]}><PatientBookLabAllLab /></ProtectedRoute>} />
+            <Route path="/EditProfileForLab" element={<ProtectedRoute allowedRoles={["Laboratory"]}><EditProfileForLab /></ProtectedRoute>} />
+            <Route path="/ForgetPasswordForLab" element={<ProtectedRoute allowedRoles={["Laboratory"]}><ForgetPasswordForLab /></ProtectedRoute>} />
+            <Route path="/ServicesLab" element={<ProtectedRoute allowedRoles={["Laboratory"]}><ServicesLab /></ProtectedRoute>} />
+            <Route path="/lab-dashboard/appointments" element={<ProtectedRoute allowedRoles={["Laboratory"]}><AppointmantLab /></ProtectedRoute>} />
+            <Route path="/lab-dashboard/consultations" element={<ProtectedRoute allowedRoles={["Laboratory"]}><ConsultantionLab /></ProtectedRoute>} />
+            <Route path="/lab-dashboard/dashboard" element={<ProtectedRoute allowedRoles={["Laboratory"]}><Boss /></ProtectedRoute>} />
+            <Route path="/lab-dashboard/patients" element={<ProtectedRoute allowedRoles={["Laboratory"]}><PatientLab /></ProtectedRoute>} />
+            <Route path="/lab-dashboard/profile" element={<ProtectedRoute allowedRoles={["Laboratory"]}><ProfileLab /></ProtectedRoute>} />
+            <Route path="/lab-dashboard/settings" element={<ProtectedRoute allowedRoles={["Laboratory"]}><SettingLab /></ProtectedRoute>} />
+            <Route path="/subscribeLab" element={<ProtectedRoute allowedRoles={["Laboratory"]}><SubscribeLab /></ProtectedRoute>} />
+
+            {/* Nurse routes */}
             <Route element={<NurseDashboardLayout />}>
-              <Route
-                path="/dashboard-nurse"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/dash-nurse"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/add-appointment-for-nurse"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/add-nursing-for-nurse"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/add-place-for-nurse"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/booking-list-for-nurse"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/nurse-dashboard-home"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/manage-bookings-for-nurse"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/manage-places-for-nurse"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/places-by-city-for-nurse"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/nurse/edit-profile"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/nurse/settings"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/nurse/logout"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseLogout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/forgetpasswordnurse"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/editprofilenurse"
-                element={
-                  <ProtectedRoute allowedRoles={["Nurse"]}>
-                    <NurseDashboardLayout />
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="/dashboard-nurse" element={<ProtectedRoute allowedRoles={["Nurse"]}><NurseDashboardLayout /></ProtectedRoute>} />
+              <Route path="/dash-nurse" element={<ProtectedRoute allowedRoles={["Nurse"]}><NurseDashboardLayout /></ProtectedRoute>} />
+              <Route path="/add-appointment-for-nurse" element={<ProtectedRoute allowedRoles={["Nurse"]}><AddAppointmentForNurse /></ProtectedRoute>} />
+              <Route path="/add-nursing-for-nurse" element={<ProtectedRoute allowedRoles={["Nurse"]}><AddNursingForNurse /></ProtectedRoute>} />
+              <Route path="/add-place-for-nurse" element={<ProtectedRoute allowedRoles={["Nurse"]}><AddPlaceForNurse /></ProtectedRoute>} />
+              <Route path="/booking-list-for-nurse" element={<ProtectedRoute allowedRoles={["Nurse"]}><BookingListForNurse /></ProtectedRoute>} />
+              <Route path="/nurse-dashboard-home" element={<ProtectedRoute allowedRoles={["Nurse"]}><NurseDashboardHome /></ProtectedRoute>} />
+              <Route path="/manage-bookings-for-nurse" element={<ProtectedRoute allowedRoles={["Nurse"]}><ManageBookingsForNurse /></ProtectedRoute>} />
+              <Route path="/manage-places-for-nurse" element={<ProtectedRoute allowedRoles={["Nurse"]}><ManagePlacesForNurse /></ProtectedRoute>} />
+              <Route path="/places-by-city-for-nurse" element={<ProtectedRoute allowedRoles={["Nurse"]}><PlacesByCityForNurse /></ProtectedRoute>} />
+              <Route path="/nurse/edit-profile" element={<ProtectedRoute allowedRoles={["Nurse"]}><EditProfileForNurse /></ProtectedRoute>} />
+              <Route path="/nurse/settings" element={<ProtectedRoute allowedRoles={["Nurse"]}><SettingsPage /></ProtectedRoute>} />
+              <Route path="/nurse/logout" element={<ProtectedRoute allowedRoles={["Nurse"]}><NurseLogout /></ProtectedRoute>} />
+              <Route path="/forgetpasswordnurse" element={<ProtectedRoute allowedRoles={["Nurse"]}><ForgetPasswordForNurse /></ProtectedRoute>} />
+              <Route path="/editprofilenurse" element={<ProtectedRoute allowedRoles={["Nurse"]}><EditProfileForNurse /></ProtectedRoute>} />
             </Route>
-            <Route
-              path="/nurse/patients"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse/appointments"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse-dashboard/appointments"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse-dashboard/consultations"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse-dashboard/dashboard"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse-dashboard/patients"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse-dashboard/profile"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/nurse-dashboard/settings"
-              element={
-                <ProtectedRoute allowedRoles={["Nurse"]}>
-                  <NurseDashboardLayout />
-                </ProtectedRoute>
-              }
-            />
-            {/* Admin Dashboard Routes */}
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}>
-                  <MiniDrawer />
-                </ProtectedRoute>
-              }
-            >
+            <Route path="/nurse/patients" element={<ProtectedRoute allowedRoles={["Nurse"]}><Patientssss /></ProtectedRoute>} />
+            <Route path="/nurse/appointments" element={<ProtectedRoute allowedRoles={["Nurse"]}><Appoinrmentsss /></ProtectedRoute>} />
+            <Route path="/nurse-dashboard/appointments" element={<ProtectedRoute allowedRoles={["Nurse"]}><Asp /></ProtectedRoute>} />
+            <Route path="/nurse-dashboard/consultations" element={<ProtectedRoute allowedRoles={["Nurse"]}><Net /></ProtectedRoute>} />
+            <Route path="/nurse-dashboard/dashboard" element={<ProtectedRoute allowedRoles={["Nurse"]}><Teacher /></ProtectedRoute>} />
+            <Route path="/nurse-dashboard/patients" element={<ProtectedRoute allowedRoles={["Nurse"]}><Lista /></ProtectedRoute>} />
+            <Route path="/nurse-dashboard/profile" element={<ProtectedRoute allowedRoles={["Nurse"]}><AccountNurse /></ProtectedRoute>} />
+            <Route path="/nurse-dashboard/settings" element={<ProtectedRoute allowedRoles={["Nurse"]}><AccountSetting /></ProtectedRoute>} />
+
+            {/* Admin routes */}
+            <Route path="/admin" element={<ProtectedRoute allowedRoles={["Admin", "SuperAdmin"]}><MiniDrawer /></ProtectedRoute>}>
               <Route index element={<Dashboard />} />
               <Route path="team" element={<ManageTeam />} />
               <Route path="contacts" element={<Contacts />} />
@@ -834,7 +413,7 @@ const App = () => {
               <Route path="verifyotpadmin" element={<VerifyOtpForAdmin />} />
               <Route path="editProfileForAdmin" element={<EditProfileForAdmin />} />
             </Route>
-            {/* Catch-all Route */}
+
             <Route path="*" element={<div>Page Not Found</div>} />
           </Routes>
         </Suspense>

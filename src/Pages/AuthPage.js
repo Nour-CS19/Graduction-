@@ -3,6 +3,64 @@ import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext();
 
+// Generate a persistent session-based encoded ID
+const generateSessionEncodedId = (userId) => {
+    if (!userId) return null;
+    
+    // Get or create a session key
+    let sessionKey = sessionStorage.getItem('session_key');
+    if (!sessionKey) {
+        sessionKey = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+        sessionStorage.setItem('session_key', sessionKey);
+    }
+    
+    // Create a secure encoded ID that combines userId with session key
+    const combined = `${userId}:${sessionKey}:${Date.now()}`;
+    return btoa(combined).replace(/[+=\/]/g, (char) => {
+        // URL-safe encoding
+        if (char === '+') return '-';
+        if (char === '/') return '_';
+        return '';
+    });
+};
+
+// Validate and decode the encoded ID
+const validateEncodedId = (encodedId, expectedUserId) => {
+    if (!encodedId || !expectedUserId) return false;
+    
+    try {
+        // Restore URL-safe characters
+        const base64 = encodedId.replace(/-/g, '+').replace(/_/g, '/');
+        const decoded = atob(base64);
+        const [userId, sessionKey, timestamp] = decoded.split(':');
+        
+        const storedSessionKey = sessionStorage.getItem('session_key');
+        
+        // Validate all components
+        if (userId !== expectedUserId.toString()) return false;
+        if (sessionKey !== storedSessionKey) return false;
+        
+        // Optional: Check if timestamp is within session validity (24 hours)
+        const age = Date.now() - parseInt(timestamp);
+        if (age > 24 * 60 * 60 * 1000) return false;
+        
+        return true;
+    } catch (error) {
+        console.error('Encoded ID validation error:', error);
+        return false;
+    }
+};
+
+// Generate a decoy ID for security (looks real but isn't)
+const generateDecoyId = () => {
+    const randomData = `decoy:${Math.random().toString(36).substring(2, 15)}:${Date.now()}`;
+    return btoa(randomData).replace(/[+=\/]/g, (char) => {
+        if (char === '+') return '-';
+        if (char === '/') return '_';
+        return '';
+    });
+};
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => {
         try {
@@ -10,11 +68,12 @@ export const AuthProvider = ({ children }) => {
             return savedUser ? JSON.parse(savedUser) : null;
         } catch (error) {
             console.error('Error parsing saved user from localStorage:', error);
-            localStorage.removeItem('user'); // Clean up corrupted data
+            localStorage.removeItem('user');
             return null;
         }
     });
     const [isLoading, setIsLoading] = useState(true);
+    const [sessionEncodedId, setSessionEncodedId] = useState(null);
     const isAuthenticated = !!user;
 
     const setCookie = (name, value, days = 7) => {
@@ -43,7 +102,7 @@ export const AuthProvider = ({ children }) => {
                 role: 'Patient',
                 email: 'unknown@example.com',
                 name: 'User',
-                exp: Date.now() + 5 * 60 * 60 * 1000 // 5h fallback
+                exp: Date.now() + 5 * 60 * 60 * 1000
             };
         }
         try {
@@ -110,8 +169,10 @@ export const AuthProvider = ({ children }) => {
             console.error('Logout error:', error);
         } finally {
             setUser(null);
+            setSessionEncodedId(null);
             setIsLoading(false);
             localStorage.clear();
+            sessionStorage.clear();
             ['accessToken', 'refreshToken', 'userRole', 'userId', 'userEmail'].forEach(deleteCookie);
             console.log('User logged out successfully');
         }
@@ -126,104 +187,111 @@ export const AuthProvider = ({ children }) => {
             if (!exp || Date.now() > exp) {
                 throw new Error('Access token is expired');
             }
+            
+            // Generate persistent session-based encoded ID
+            const encodedUserId = generateSessionEncodedId(id);
+            setSessionEncodedId(encodedUserId);
+            
             const enhancedUser = {
                 ...userData,
                 email: email || userData.email || 'unknown@example.com',
                 id: id || userData.id || null,
+                encodedId: encodedUserId,
                 role: role || userData.role || 'Patient',
                 Role: role || userData.role || 'Patient',
                 name: name || userData.name || 'User',
                 exp: exp,
                 accessToken: accessToken,
             };
+            
             if (!enhancedUser.id) {
                 console.warn('No user ID available after login');
             }
+            
             localStorage.setItem('user', JSON.stringify(enhancedUser));
             localStorage.setItem('accessToken', accessToken);
             localStorage.setItem('token', accessToken);
             if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+            
             setCookie('accessToken', accessToken, 7);
             if (refreshToken) setCookie('refreshToken', refreshToken, 7);
             setCookie('userRole', enhancedUser.role, 7);
-            setCookie('userId', enhancedUser.id || '', 7);
-            setCookie('userEmail', enhancedUser.email || '', 7);
+            
             setUser(enhancedUser);
             setIsLoading(false);
-            return { success: true, role: enhancedUser.role };
+            
+            return { success: true, role: enhancedUser.role, userId: enhancedUser.id, encodedId: encodedUserId };
         } catch (error) {
             console.error('Login failed:', error);
-            logout(); // Ensure clean state on error
+            logout();
             throw new Error(`Login failed: ${error.message}`);
         }
     }, [extractUserFromToken, logout]);
 
-    const refreshAuthToken = useCallback(async () => {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-            console.warn('No refresh token available for refresh');
-            return logout();
-        }
-        try {
-            // Extract expiration from refresh token
-            let expireRefreshToken;
-            try {
-                const refreshTokenPayload = jwtDecode(refreshToken);
-                expireRefreshToken = refreshTokenPayload.exp
-                    ? new Date(refreshTokenPayload.exp * 1000).toISOString()
-                    : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-            } catch (decodeError) {
-                console.warn('Could not decode refresh token, using fallback expiration');
-                expireRefreshToken = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-            }
+   const refreshAuthToken = useCallback(async () => {
+    const accessToken = localStorage.getItem('accessToken');
+    const refreshToken = localStorage.getItem('refreshToken');
 
-            const response = await fetch('https://physiocareapp.runasp.net/api/token/refresh-token', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    refreshToken,
-                    expireRefreshToken
-                })
-            });
+    if (!accessToken || !refreshToken) {
+        console.warn('Missing tokens for refresh');
+        return logout();
+    }
 
-            if (!response.ok) {
-                if (response.status === 401 || response.status === 403) {
-                    console.warn('Refresh token expired or invalid - logging out');
-                    return logout();
-                }
-                try {
-                    const errorData = await response.json();
-                    console.error('Refresh token API error:', errorData);
-                } catch {
-                    console.error('Refresh token API error - non-JSON response');
-                }
-                throw new Error(`Refresh failed with status: ${response.status}`);
-            }
+    let expireAccessToken, expireRefreshToken;
 
-            let data;
-            try {
-                data = await response.json();
-            } catch (parseError) {
-                console.error('Failed to parse refresh response as JSON:', parseError);
-                throw new Error('Invalid response from refresh endpoint');
-            }
+    try {
+        const accessPayload = jwtDecode(accessToken);
+        expireAccessToken = accessPayload.exp
+            ? new Date(accessPayload.exp * 1000).toISOString()
+            : new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
 
-            if (!data.accessToken || !data.refreshToken) {
-                console.error('Refresh response missing required tokens:', data);
+        const refreshPayload = jwtDecode(refreshToken);
+        expireRefreshToken = refreshPayload.exp
+            ? new Date(refreshPayload.exp * 1000).toISOString()
+            : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    } catch (error) {
+        console.warn('Token decode failed, using fallback expiration');
+        expireAccessToken = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
+        expireRefreshToken = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    }
+
+    try {
+        const response = await fetch('https://physiocareapp.runasp.net/api/token/refresh-token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json-patch+json',
+            },
+            body: JSON.stringify({
+                accessToken,
+                refreshToken,
+                expireAccessToken,
+                expireRefreshToken
+            })
+        });
+
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                console.warn('Refresh token expired or invalid');
                 return logout();
             }
-
-            const newAccessToken = data.accessToken;
-            const newRefreshToken = data.refreshToken;
-            login(newAccessToken, newRefreshToken);
-            console.log('Token refreshed successfully');
-        } catch (error) {
-            console.error('Token refresh failed:', error);
-            logout();
+            throw new Error(`Refresh failed with status: ${response.status}`);
         }
-    }, [login, logout]);
+
+        const data = await response.json();
+
+        if (!data.accessToken || !data.refreshToken) {
+            console.error('Missing tokens in refresh response');
+            return logout();
+        }
+
+        login(data.accessToken, data.refreshToken);
+        console.log('Token refreshed successfully');
+    } catch (error) {
+        console.error('Token refresh failed:', error);
+        logout();
+    }
+}, [login, logout]);
+
 
     useEffect(() => {
         const checkAuthStatus = async () => {
@@ -238,9 +306,17 @@ export const AuthProvider = ({ children }) => {
                             console.log('Access token expired, attempting refresh...');
                             await refreshAuthToken();
                         } else {
+                            // Use existing encoded ID if valid, otherwise generate new one
+                            let encodedUserId = parsedUser.encodedId;
+                            if (!encodedUserId || !validateEncodedId(encodedUserId, id)) {
+                                encodedUserId = generateSessionEncodedId(id);
+                            }
+                            setSessionEncodedId(encodedUserId);
+                            
                             const updatedUser = {
                                 ...parsedUser,
                                 id: id || parsedUser.id,
+                                encodedId: encodedUserId,
                                 role: role || parsedUser.role,
                                 email: email || parsedUser.email,
                                 name: name || parsedUser.name,
@@ -285,9 +361,7 @@ export const AuthProvider = ({ children }) => {
                 try {
                     const errorData = await response.json();
                     errorMessage = errorData.message || errorMessage;
-                } catch {
-                    // Non-JSON error response
-                }
+                } catch {}
                 throw new Error(errorMessage);
             }
             const data = await response.json();
@@ -305,10 +379,9 @@ export const AuthProvider = ({ children }) => {
         }
     }, [login]);
 
-    // Auto-refresh token before it expires
     useEffect(() => {
         if (!user?.exp) return;
-        const timeUntilRefresh = user.exp - Date.now() - 5 * 60 * 1000; // 5 minutes before expiry
+        const timeUntilRefresh = user.exp - Date.now() - 5 * 60 * 1000;
         if (timeUntilRefresh <= 0) {
             refreshAuthToken();
             return;
@@ -319,8 +392,31 @@ export const AuthProvider = ({ children }) => {
         return () => clearTimeout(refreshTimeout);
     }, [user?.exp, refreshAuthToken]);
 
+    const getEncodedUserId = useCallback(() => {
+        return sessionEncodedId || user?.encodedId || null;
+    }, [sessionEncodedId, user]);
+
+    const validateUserId = useCallback((urlUserId) => {
+        if (!user?.id) return false;
+        return validateEncodedId(urlUserId, user.id);
+    }, [user]);
+
+    const getDecoyId = useCallback(() => {
+        return generateDecoyId();
+    }, []);
+
     return (
-        <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, register, logout }}>
+        <AuthContext.Provider value={{ 
+            user, 
+            isAuthenticated, 
+            isLoading, 
+            login, 
+            register, 
+            logout, 
+            getEncodedUserId,
+            validateUserId,
+            getDecoyId
+        }}>
             {children}
         </AuthContext.Provider>
     );

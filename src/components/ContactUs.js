@@ -20,15 +20,17 @@ import {
 } from "lucide-react";
 import bannerImage from "../assets/images/mockuuups-iphone-15-pro-in-hand-mockup.png";
 import chatImage from "../assets/images/Start 1-left.png";
+import { useNavigateWithUser } from "../App";
 
 const PhysioCareLanding = () => {
   const [scrollY, setScrollY] = useState(0);
   const [isVisible, setIsVisible] = useState({});
+  const navigateWithUser = useNavigateWithUser();
   
   const homeRef = useRef(null);
   const servicesRef = useRef(null);
   const aboutRef = useRef(null);
-  const chatVideosRef = useRef(null); // Ref for Videos & Real-Time Chat section
+  const chatVideosRef = useRef(null);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -61,6 +63,14 @@ const PhysioCareLanding = () => {
 
   const scrollToSection = (ref) => {
     ref.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleNavigate = (path) => {
+    if (navigateWithUser) {
+      navigateWithUser(path);
+    } else {
+      window.location.href = path;
+    }
   };
 
   const stats = [
@@ -99,7 +109,6 @@ const PhysioCareLanding = () => {
       features: ["Home Sample Collection", "Quick Results", "Accurate Testing", "Digital Reports"],
       color: "warning"
     },
-    
     {
       icon: <Stethoscope size={48} />,
       title: "At Home Consultations",
@@ -111,7 +120,6 @@ const PhysioCareLanding = () => {
 
   return (
     <>
-      {/* Bootstrap CSS */}
       <link 
         href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" 
         rel="stylesheet" 
@@ -179,12 +187,13 @@ const PhysioCareLanding = () => {
           }
           
           .hero-image, .chat-image, .video-image, .about-image {
-            background: transparent; /* Simulate transparent background */
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1); /* Enhance with shadow */
-            width: 300px; /* Fixed width */
-            height: 400px; /* Fixed height */
-            max-width: 100%; /* Responsive */
-            object-fit: cover; /* Maintain aspect ratio */
+            background: transparent;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            object-fit: cover;
+            border-radius: 20px;
           }
           
           .fade-in {
@@ -237,11 +246,21 @@ const PhysioCareLanding = () => {
             0%, 100% { opacity: 0.2; }
             50% { opacity: 0.4; }
           }
+
+          .section-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 80px 0;
+          }
+
+          .chat-videos-section {
+            padding-bottom: 100px;
+          }
         `}
       </style>
 
       <div className="min-vh-100">
-        {/* Hero Section */}
         <section ref={homeRef} id="home" className="hero-section d-flex align-items-center">
           <div className="hero-decoration"></div>
           
@@ -272,7 +291,6 @@ const PhysioCareLanding = () => {
                   </button>
                 </div>
                 
-                {/* Stats */}
                 <div className="row g-3">
                   {stats.map((stat, index) => (
                     <div key={index} className="col-6 col-lg-3">
@@ -292,7 +310,7 @@ const PhysioCareLanding = () => {
                     <img 
                       src={bannerImage} 
                       alt="Healthcare Professional in Egypt" 
-                      className="img-fluid rounded-4 hero-image"
+                      className="img-fluid rounded-4 hero-image mx-auto d-block"
                     />
                     <div className="position-absolute bottom-0 start-0 bg-white p-4 rounded-3 shadow-lg" style={{transform: 'translate(-20px, 20px)'}}>
                       <div className="d-flex align-items-center">
@@ -313,8 +331,7 @@ const PhysioCareLanding = () => {
           </div>
         </section>
 
-        {/* Services Section */}
-        <section ref={servicesRef} id="services" className="py-5 bg-light">
+        <section ref={servicesRef} id="services" className="section-wrapper bg-light">
           <div className="container">
             <div className={`text-center mb-5 fade-in ${isVisible.services ? 'visible' : ''}`}>
               <h2 className="display-4 fw-bold mb-4">
@@ -346,7 +363,6 @@ const PhysioCareLanding = () => {
                           </li>
                         ))}
                       </ul>
-                      
                     </div>
                   </div>
                 </div>
@@ -355,8 +371,7 @@ const PhysioCareLanding = () => {
           </div>
         </section>
 
-        {/* About Us Section */}
-        <section ref={aboutRef} id="about" className="py-5 bg-white">
+        <section ref={aboutRef} id="about" className="section-wrapper bg-white">
           <div className="container">
             <div className="row align-items-center g-5">
               <div className={`col-lg-6 slide-in-left ${isVisible.about ? 'visible' : ''}`}>
@@ -364,7 +379,7 @@ const PhysioCareLanding = () => {
                   <span className="gradient-text">عن PhysioCare About Us</span>
                 </h2>
                 <p className="lead text-muted mb-4">
-نحن منصة رعاية صحية مقرها في قلب المنوفية، مصر، نسعى لتقديم خدمات طبية متميزة إلى عتبة منزلك باستخدام أحدث التقنيات.
+                  نحن منصة رعاية صحية مقرها في قلب المنوفية، مصر، نسعى لتقديم خدمات طبية متميزة إلى عتبة منزلك باستخدام أحدث التقنيات.
                 </p>
                 <p className="lead text-muted mb-4">
                   Based in the heart of Menofia, Egypt, our healthcare platform is dedicated to bringing top-notch medical services to your doorstep with cutting-edge technology and unwavering compassion.
@@ -373,6 +388,9 @@ const PhysioCareLanding = () => {
                 <div className="row g-4 mb-4">
                   {[
                     { icon: <Shield size={24} />, title: "رعاية موثوقة", desc: "متخصصون معتمدون" },
+                    { icon: <Heart size={24} />, title: "Compassionate Care", desc: "Patient-centered approach" },
+                    { icon: <Award size={24} />, title: "Excellence", desc: "High-quality standards" },
+                    { icon: <Activity size={24} />, title: "24/7 Support", desc: "Always available" }
                   ].map((item, index) => (
                     <div key={index} className="col-sm-6">
                       <div className="d-flex align-items-start">
@@ -393,15 +411,14 @@ const PhysioCareLanding = () => {
                 <img 
                   src={bannerImage} 
                   alt="About PhysioCare" 
-                  className="img-fluid rounded-4 about-image mb-4"
+                  className="img-fluid rounded-4 about-image mx-auto d-block"
                 />
               </div>
             </div>
           </div>
         </section>
 
-        {/* Videos & Real-Time Chat Section */}
-        <section ref={chatVideosRef} id="chat-videos" className="py-5 bg-light">
+        <section ref={chatVideosRef} id="chat-videos" className="section-wrapper chat-videos-section bg-light">
           <div className="container">
             <div className={`text-center mb-5 fade-in ${isVisible['chat-videos'] ? 'visible' : ''}`}>
               <h2 className="display-4 fw-bold mb-4">
@@ -412,44 +429,53 @@ const PhysioCareLanding = () => {
               </p>
             </div>
             
-            <div className="row g-4">
-              {/* Videos Section */}
-              <div className="col-md-6">
-                <div className="card service-card h-100 shadow">
+            <div className="row g-4 justify-content-center">
+              <div className="col-md-6 col-lg-5">
+                <div className={`card service-card h-100 shadow fade-in ${isVisible['chat-videos'] ? 'visible' : ''}`}>
                   <div className="card-body p-4 text-center">
                     <div className="service-icon bg-info mb-4 mx-auto">
                       <Video size={48} />
                     </div>
                     <h5 className="card-title fw-bold text-center mb-3">نصائح فيديو Advice Videos</h5>
                     <p className="card-text text-muted mb-4">استكشف فيديوهات تعليمية للرعاية الذاتية والصحة العامة.</p>
-                    <img 
-                      src={chatImage} 
-                      alt="Advice Videos" 
-                      className="img-fluid rounded-4 video-image mb-4"
-                    />
-                    <a href="/video-advices" className="btn btn-primary w-100 mt-3 rounded-pill">
+                    <div className="mb-4">
+                      <img 
+                        src={chatImage} 
+                        alt="Advice Videos" 
+                        className="img-fluid rounded-4 video-image mx-auto d-block"
+                      />
+                    </div>
+                    <button 
+                      onClick={() => handleNavigate('/video-advices')}
+                      className="btn btn-primary w-100 mt-3 rounded-pill"
+                    >
                       شاهد الآن Watch Now <ArrowRight className="ms-2" size={20} />
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
-              {/* Real-Time Chat Section */}
-              <div className="col-md-6">
-                <div className="card service-card h-100 shadow">
+              
+              <div className="col-md-6 col-lg-5">
+                <div className={`card service-card h-100 shadow fade-in ${isVisible['chat-videos'] ? 'visible' : ''}`} style={{ transitionDelay: '100ms' }}>
                   <div className="card-body p-4 text-center">
                     <div className="service-icon bg-primary mb-4 mx-auto">
                       <Phone size={48} />
                     </div>
                     <h5 className="card-title fw-bold text-center mb-3">دردشة فورية Real-Time Chat</h5>
                     <p className="card-text text-muted mb-4">تواصل مع مختصين للحصول على استشارات فورية.</p>
-                    <img 
-                      src={bannerImage} 
-                      alt="Real-Time Chat" 
-                      className="img-fluid rounded-4 chat-image mb-4"
-                    />
-                    <a href="/chat" className="btn btn-primary w-100 mt-3 rounded-pill">
+                    <div className="mb-4">
+                      <img 
+                        src={bannerImage} 
+                        alt="Real-Time Chat" 
+                        className="img-fluid rounded-4 chat-image mx-auto d-block"
+                      />
+                    </div>
+                    <button 
+                      onClick={() => handleNavigate('/Chat')}
+                      className="btn btn-primary w-100 mt-3 rounded-pill"
+                    >
                       ابدأ الدردشة Start Chat <ArrowRight className="ms-2" size={20} />
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -458,7 +484,6 @@ const PhysioCareLanding = () => {
         </section>
       </div>
 
-      {/* Bootstrap JS */}
       <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
     </>
   );

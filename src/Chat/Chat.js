@@ -1,650 +1,800 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '../Pages/AuthPage';
+import { Send, Paperclip, X, RefreshCw, Wifi, WifiOff, Users, Bell, CheckCheck, Check, Clock, AlertCircle, ChevronDown, ChevronRight, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import * as signalR from '@microsoft/signalr';
-import { Send, Paperclip, X, RefreshCw, Wifi, WifiOff, Users } from 'lucide-react';
-import Navbar from '../components/Nav';
-import Footer from '../components/Footer';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import { useAuth } from '../Pages/AuthPage';
 
 const ChatApp = () => {
-  const { user, logout, refreshAuthToken } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
   const [users, setUsers] = useState([]);
+  const [chattedUsers, setChattedUsers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [message, setMessage] = useState('');
   const [file, setFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
   const [connectionError, setConnectionError] = useState(null);
-  const [reconnectStatus, setReconnectStatus] = useState('');
   const [connectionState, setConnectionState] = useState('Disconnected');
   const [userPhotos, setUserPhotos] = useState({});
-  const [loadingImages, setLoadingImages] = useState(new Set());
+  const [messageImages, setMessageImages] = useState({});
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
+  const [debugLogs, setDebugLogs] = useState([]);
+  const [unreadCounts, setUnreadCounts] = useState({});
+  const [notifications, setNotifications] = useState([]);
+  const [liveEvents, setLiveEvents] = useState([]);
+  
+  const [expandedSections, setExpandedSections] = useState({
+    chatted: true,
+    online: true,
+    doctor: true,
+    nurse: true,
+    laboratory: true
+  });
+
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const messagesContainerRef = useRef(null);
-  const connectionRef = useRef(null);
-  const retryCountRef = useRef(0);
-  const maxRetries = 5;
   const messageIdsRef = useRef(new Set());
-  const pendingMessagesRef = useRef(new Map());
+  const hubConnectionRef = useRef(null);
+  const pendingMessagesRef = useRef({});
   const selectedUserRef = useRef(null);
+  const imageFetchQueueRef = useRef([]);
+  const isFetchingImagesRef = useRef(false);
+  const imageCacheRef = useRef(new Map());
+  const abortControllersRef = useRef(new Map());
+  const connectionAttemptsRef = useRef(0);
+  const maxConnectionAttempts = 5;
 
-  // Custom API fetch with auth and refresh handling
-  const apiFetch = useCallback(async (url, options = {}) => {
+  const addDebugLog = useCallback((message, type = 'info') => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugLogs(prev => [...prev.slice(-50), { timestamp, message, type }]);
+    console.log(`[${timestamp}] ${message}`);
+  }, []);
+
+  const addLiveEvent = useCallback((event, type = 'message') => {
+    const id = `event-${Date.now()}-${Math.random()}`;
+    setLiveEvents(prev => [...prev.slice(-5), { id, event, type, timestamp: new Date() }]);
+    setTimeout(() => {
+      setLiveEvents(prev => prev.filter(e => e.id !== id));
+    }, 4000);
+  }, []);
+
+  const apiFetch = useCallback(async (url, options = {}, retryCount = 0) => {
+    const maxRetries = 2;
+    addDebugLog(`API Request: ${options.method || 'GET'} ${url}`, 'info');
+
+    const accessToken = localStorage.getItem('accessToken') || user?.accessToken;
+
     const config = {
       ...options,
       headers: {
+        'Content-Type': options.body instanceof FormData ? undefined : 'application/json',
         ...options.headers,
-        Authorization: `Bearer ${user?.accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       },
+      mode: 'cors',
+      credentials: 'omit',
     };
+
+    if (options.body instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     try {
       const response = await fetch(url, config);
-      if (response.ok) return response;
-      if (response.status === 401) {
-        try {
-          await refreshAuthToken();
-          config.headers.Authorization = `Bearer ${user?.accessToken}`;
-          return await fetch(url, config);
-        } catch (refreshError) {
-          console.error('Token refresh failed:', refreshError);
-          logout();
-          throw new Error('Authentication expired. Please log in again.');
+      addDebugLog(`Response Status: ${response.status}`, response.ok ? 'success' : 'error');
+
+      if (response.status === 429) {
+        if (retryCount < maxRetries) {
+          const waitTime = Math.min(2000 * Math.pow(2, retryCount), 10000);
+          addDebugLog(`Rate limited. Retrying in ${waitTime / 1000}s`, 'warning');
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          return apiFetch(url, options, retryCount + 1);
         }
+        throw new Error('Rate limit exceeded');
       }
-      const errorText = await response.text();
+
+      if (response.ok) {
+        setConnectionError(null);
+        return response;
+      }
+
+      if (response.status === 401 && retryCount === 0) {
+        addDebugLog('Token expired, logging out...', 'error');
+        logout();
+        throw new Error('Authentication expired');
+      }
+
+      const errorText = await response.text().catch(() => '');
       throw new Error(`API Error ${response.status}: ${errorText}`);
     } catch (error) {
-      console.error(`API call failed for ${url}:`, error);
+      if (error.name === 'TypeError' || error.message.includes('Failed to fetch')) {
+        addDebugLog(`Network error: ${error.message}`, 'error');
+        setConnectionError('Network error. Check connection.');
+        throw new Error('Network error');
+      }
       throw error;
     }
-  }, [user?.accessToken, refreshAuthToken, logout]);
+  }, [user?.accessToken, logout, addDebugLog]);
+
+  const fetchImageWithRetry = useCallback(async (url, options, maxRetries = 3) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        abortControllersRef.current.set(url, controller);
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        abortControllersRef.current.delete(url);
+        
+        if (response.ok) {
+          return response;
+        }
+        
+        throw new Error(`HTTP ${response.status}`);
+      } catch (error) {
+        if (attempt === maxRetries) {
+          throw error;
+        }
+        
+        // Exponential backoff
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+        addDebugLog(`Image fetch attempt ${attempt} failed, retrying in ${delay}ms: ${error.message}`, 'warning');
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }, [addDebugLog]);
+
+  const fetchMessageImage = useCallback(async (fileName, messageId) => {
+    const accessToken = localStorage.getItem('accessToken') || user?.accessToken;
+    if (!fileName || !accessToken) return null;
+
+    // Check cache first
+    const cacheKey = `${fileName}-${messageId}`;
+    if (imageCacheRef.current.has(cacheKey)) {
+      const cachedUrl = imageCacheRef.current.get(cacheKey);
+      setMessageImages(prev => ({ ...prev, [messageId]: cachedUrl }));
+      return cachedUrl;
+    }
+
+    // Add to queue
+    const task = async () => {
+      try {
+        const url = `https://physiocareapp.runasp.net/api/v1/Upload/image?filename=${encodeURIComponent(fileName)}&path=Chat`;
+        const options = {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        };
+
+        const res = await fetchImageWithRetry(url, options);
+        
+        if (res.ok) {
+          const blob = await res.blob();
+          const imgUrl = URL.createObjectURL(blob);
+          
+          // Cache the result
+          imageCacheRef.current.set(cacheKey, imgUrl);
+          setMessageImages(prev => ({ ...prev, [messageId]: imgUrl }));
+          addDebugLog(`✅ Image loaded: ${fileName}`, 'success');
+          return imgUrl;
+        } else {
+          // Try alternative paths
+          const paths = ['Chats', 'chat', 'chats', 'Messages', 'message'];
+          for (const path of paths) {
+            try {
+              const altUrl = `https://physiocareapp.runasp.net/api/v1/Upload/image?filename=${encodeURIComponent(fileName)}&path=${path}`;
+              const altRes = await fetchImageWithRetry(altUrl, options);
+              
+              if (altRes.ok) {
+                const blob = await altRes.blob();
+                const imgUrl = URL.createObjectURL(blob);
+                
+                // Cache the result
+                imageCacheRef.current.set(cacheKey, imgUrl);
+                setMessageImages(prev => ({ ...prev, [messageId]: imgUrl }));
+                addDebugLog(`✅ Image loaded from ${path}: ${fileName}`, 'success');
+                return imgUrl;
+              }
+            } catch (err) {
+              continue;
+            }
+          }
+          throw new Error('All paths failed');
+        }
+      } catch (err) {
+        addDebugLog(`❌ Failed to fetch image ${fileName}: ${err.message}`, 'error');
+        return null;
+      }
+    };
+
+    // Add to queue and process
+    imageFetchQueueRef.current.push({ task, messageId, fileName });
+    processImageQueue();
+
+    return null;
+  }, [user?.accessToken, addDebugLog, fetchImageWithRetry]);
+
+  const processImageQueue = useCallback(async () => {
+    if (isFetchingImagesRef.current || imageFetchQueueRef.current.length === 0) {
+      return;
+    }
+
+    isFetchingImagesRef.current = true;
+    
+    // Process max 2 images at a time
+    const concurrentLimit = 2;
+    const tasksToProcess = imageFetchQueueRef.current.splice(0, concurrentLimit);
+    
+    addDebugLog(`Processing ${tasksToProcess.length} images from queue (${imageFetchQueueRef.current.length} remaining)`, 'info');
+    
+    await Promise.allSettled(
+      tasksToProcess.map(async ({ task, messageId, fileName }) => {
+        try {
+          await task();
+        } catch (error) {
+          addDebugLog(`❌ Queue task failed for ${fileName}: ${error.message}`, 'error');
+        }
+      })
+    );
+    
+    // Add delay between batches to avoid overwhelming server
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    isFetchingImagesRef.current = false;
+    
+    // Process next batch if any
+    if (imageFetchQueueRef.current.length > 0) {
+      setTimeout(processImageQueue, 100);
+    }
+  }, [addDebugLog]);
+
+  const setupSignalRConnection = useCallback(async () => {
+    const accessToken = localStorage.getItem('accessToken') || user?.accessToken;
+    if (!accessToken) {
+      addDebugLog('No access token available for SignalR', 'error');
+      return;
+    }
+    
+    // Clear any existing connection
+    if (hubConnectionRef.current) {
+      try {
+        await hubConnectionRef.current.stop();
+        hubConnectionRef.current = null;
+      } catch (err) {
+        addDebugLog(`Error stopping previous connection: ${err.message}`, 'error');
+      }
+    }
+    
+    connectionAttemptsRef.current += 1;
+    
+    if (connectionAttemptsRef.current > maxConnectionAttempts) {
+      addDebugLog(`Max connection attempts (${maxConnectionAttempts}) reached. Will retry later.`, 'error');
+      setConnectionError('Connection failed after multiple attempts. Please refresh the page.');
+      return;
+    }
+    
+    addDebugLog(`Setting up SignalR connection (attempt ${connectionAttemptsRef.current}/${maxConnectionAttempts})...`, 'info');
+
+    try {
+      // Test connection first
+      const testUrl = 'https://physiocareapp.runasp.net/chathub/negotiate';
+      try {
+        const testResponse = await fetch(testUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!testResponse.ok) {
+          throw new Error(`Negotiation failed: ${testResponse.status}`);
+        }
+        
+        const negotiateData = await testResponse.json();
+        addDebugLog(`✅ Negotiation successful: ${JSON.stringify(negotiateData)}`, 'success');
+      } catch (negotiateError) {
+        addDebugLog(`❌ Negotiation failed: ${negotiateError.message}`, 'error');
+      }
+
+      // Create connection with improved configuration
+      const connection = new signalR.HubConnectionBuilder()
+        .withUrl('https://physiocareapp.runasp.net/chathub', {
+          accessTokenFactory: () => accessToken,
+          transport: signalR.HttpTransportType.WebSockets | 
+                    signalR.HttpTransportType.ServerSentEvents | 
+                    signalR.HttpTransportType.LongPolling,
+          skipNegotiation: false,
+          withCredentials: false,
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        })
+        .withAutomaticReconnect({
+          nextRetryDelayInMilliseconds: (retryContext) => {
+            if (retryContext.elapsedMilliseconds < 30000) {
+              return 2000; // 2 seconds for first 30 seconds
+            } else if (retryContext.elapsedMilliseconds < 60000) {
+              return 5000; // 5 seconds for next 30 seconds
+            } else {
+              return 10000; // 10 seconds thereafter
+            }
+          }
+        })
+        .configureLogging(signalR.LogLevel.Warning)
+        .build();
+
+      // Connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (connection.state !== signalR.HubConnectionState.Connected) {
+          addDebugLog('Connection timeout - stopping connection attempt', 'warning');
+          connection.stop();
+        }
+      }, 30000);
+
+      const safeHandler = (handlerName, handler) => {
+        return (...args) => {
+          try {
+            handler(...args);
+          } catch (error) {
+            addDebugLog(`❌ Error in ${handlerName}: ${error.message}`, 'error');
+            console.error(`SignalR ${handlerName} error:`, error);
+          }
+        };
+      };
+
+      connection.on('ReceiveMessage', safeHandler('ReceiveMessage', (param1, param2, param3, param4, param5) => {
+        let senderId, recipientId, messageText, date, fileName, senderName;
+        
+        if (typeof param1 === 'string' && typeof param2 === 'string' && param3 && !param4) {
+          senderName = param1;
+          messageText = param2;
+          senderId = param3;
+          recipientId = user.id;
+          date = new Date().toISOString();
+          fileName = null;
+          addDebugLog(`📨 Received OLD format: senderName=${senderName}, text="${messageText}", senderId=${senderId}`, 'info');
+        }
+        else if (param1 && param2 && typeof param3 === 'string') {
+          senderId = param1;
+          recipientId = param2;
+          messageText = param3;
+          date = param4 || new Date().toISOString();
+          fileName = param5 || null;
+          senderName = users.find(u => String(u.id) === String(senderId))?.name || 'Unknown';
+          addDebugLog(`📨 Received NEW format: senderId=${senderId}, recipientId=${recipientId}, text="${messageText}"`, 'info');
+        }
+        else {
+          addDebugLog(`⚠️ Unknown message format received: ${JSON.stringify([param1, param2, param3, param4, param5])}`, 'warning');
+          return;
+        }
+        
+        const recipientName = users.find(u => String(u.id) === String(recipientId))?.name || 'Unknown';
+        
+        addLiveEvent(`📨 ${senderName} → ${recipientName}: ${messageText?.substring(0, 30) || 'File'}`, 'message');
+        addDebugLog(`📨 Processed message from ${senderName} (${senderId}) to ${recipientName} (${recipientId})`, 'success');
+
+        const newMessage = {
+          id: `signalr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          senderId: String(senderId),
+          recipientId: String(recipientId),
+          text: messageText || '',
+          date: date || new Date().toISOString(),
+          file: fileName || null,
+          isOptimistic: false,
+          isDelivered: true,
+          isUnread: true
+        };
+
+        // Queue image fetch instead of fetching immediately
+        if (newMessage.file && /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(newMessage.file)) {
+          setTimeout(() => {
+            fetchMessageImage(newMessage.file, newMessage.id);
+          }, 100); // Small delay to avoid immediate fetch
+        }
+
+        const isFromMe = String(senderId) === String(user.id);
+        const isForMe = String(recipientId) === String(user.id);
+        const otherUserId = isFromMe ? String(recipientId) : String(senderId);
+        
+        const currentSelectedUser = selectedUserRef.current;
+        const isCurrentConversation = currentSelectedUser && (
+          String(currentSelectedUser.id) === otherUserId || 
+          String(currentSelectedUser.id) === String(senderId) || 
+          String(currentSelectedUser.id) === String(recipientId)
+        );
+
+        addDebugLog(`Message routing: isFromMe=${isFromMe}, isForMe=${isForMe}, otherUserId=${otherUserId}, selectedUserId=${currentSelectedUser?.id}, isCurrentConversation=${isCurrentConversation}`, 'info');
+
+        if (isCurrentConversation) {
+          addDebugLog(`💬 Delivering message to current conversation UI`, 'success');
+          setMessages(prev => {
+            const withoutOptimistic = prev.filter(m => {
+              if (!m.isOptimistic) return true;
+              const isSameMessage = String(m.senderId) === String(newMessage.senderId) &&
+                String(m.recipientId) === String(newMessage.recipientId) &&
+                (m.text || '').trim() === (newMessage.text || '').trim() &&
+                (m.file || null) === (newMessage.file || null);
+              if (isSameMessage) {
+                addDebugLog(`🔄 Replacing optimistic message with real SignalR message`, 'success');
+              }
+              return !isSameMessage;
+            });
+            
+            const messageExists = withoutOptimistic.some(m => 
+              String(m.senderId) === String(newMessage.senderId) &&
+              String(m.recipientId) === String(newMessage.recipientId) &&
+              (m.text || '').trim() === (newMessage.text || '').trim() &&
+              Math.abs(new Date(m.date) - new Date(newMessage.date)) < 10000
+            );
+
+            if (messageExists) {
+              addDebugLog(`⚠️ Duplicate message detected, skipping`, 'warning');
+              return withoutOptimistic;
+            }
+
+            const updated = [...withoutOptimistic, { ...newMessage, isUnread: false }].sort((a, b) =>
+              new Date(a.date) - new Date(b.date)
+            );
+            
+            addDebugLog(`✅ Message added to UI. Total messages: ${updated.length}`, 'success');
+            return updated;
+          });
+
+          setTimeout(() => {
+            if (messagesEndRef.current) {
+              messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+            }
+          }, 0);
+
+          addDebugLog(`✅ Message instantly delivered to UI`, 'success');
+        }
+        else if (isFromMe) {
+          const recipientIdStr = String(recipientId);
+          addDebugLog(`📤 Storing my message for recipient ${recipientIdStr}`, 'info');
+          
+          pendingMessagesRef.current = {
+            ...pendingMessagesRef.current,
+            [recipientIdStr]: [
+              ...(pendingMessagesRef.current[recipientIdStr] || []),
+              newMessage
+            ]
+          };
+        }
+        else if (isForMe && !isFromMe) {
+          const senderIdStr = String(senderId);
+          addDebugLog(`📬 Storing incoming message from user ${senderIdStr}`, 'info');
+          
+          setUnreadCounts(prev => ({
+            ...prev,
+            [senderIdStr]: (prev[senderIdStr] || 0) + 1
+          }));
+
+          pendingMessagesRef.current = {
+            ...pendingMessagesRef.current,
+            [senderIdStr]: [
+              ...(pendingMessagesRef.current[senderIdStr] || []),
+              newMessage
+            ]
+          };
+
+          const sender = users.find(u => String(u.id) === senderIdStr);
+          if (sender) {
+            setNotifications(prev => [...prev, {
+              id: newMessage.id,
+              senderName: sender.name,
+              message: messageText || (fileName ? 'Sent an image' : 'Sent a message'),
+              timestamp: new Date().toISOString()
+            }]);
+          }
+
+          addDebugLog(`📬 Message stored for user ${senderIdStr}`, 'info');
+        }
+      }));
+
+      connection.on('UpdateUserList', safeHandler('UpdateUserList', (userList) => {
+        addDebugLog(`📋 UpdateUserList received: ${JSON.stringify(userList)}`, 'info');
+        
+        if (!userList || !Array.isArray(userList)) {
+          addDebugLog(`⚠️ Invalid UpdateUserList format`, 'warning');
+          return;
+        }
+        
+        const onlineUserIds = new Set(
+          userList.map(conn => {
+            const id = conn.userId || conn.UserId || conn.userid;
+            const normalizedId = String(id).toLowerCase().trim();
+            addDebugLog(`📍 Online user detected: ${id} (normalized: ${normalizedId})`, 'info');
+            return normalizedId;
+          })
+        );
+        
+        addDebugLog(`👥 Online users: ${Array.from(onlineUserIds).join(', ')}`, 'success');
+        addLiveEvent(`📋 ${onlineUserIds.size} users online`, 'status');
+        
+        setUsers(prev =>
+          prev.map(u => {
+            const userId = String(u.id).toLowerCase().trim();
+            const isOnline = onlineUserIds.has(userId);
+            const newStatus = isOnline ? 'online' : 'offline';
+            
+            if (u.lastActive !== newStatus) {
+              addDebugLog(`🔄 ${u.name} (${u.id}): ${u.lastActive || 'unknown'} → ${newStatus}`, isOnline ? 'success' : 'info');
+            }
+            
+            return { ...u, lastActive: newStatus };
+          })
+        );
+        
+        if (selectedUserRef.current) {
+          const selectedUserId = String(selectedUserRef.current.id).toLowerCase().trim();
+          const isSelectedOnline = onlineUserIds.has(selectedUserId);
+          setSelectedUser(prev => {
+            if (!prev) return null;
+            const updated = { ...prev, lastActive: isSelectedOnline ? 'online' : 'offline' };
+            selectedUserRef.current = updated;
+            addDebugLog(`📍 Selected user ${prev.name}: ${isSelectedOnline ? 'ONLINE ✅' : 'OFFLINE'}`, isSelectedOnline ? 'success' : 'info');
+            return updated;
+          });
+        }
+      }));
+
+      connection.on('UserStatusChanged', safeHandler('UserStatusChanged', (userId, isOnline) => {
+        const userIdStr = String(userId).toLowerCase().trim();
+        const userName = users.find(u => String(u.id).toLowerCase().trim() === userIdStr)?.name || `User ${userIdStr.substring(0, 8)}`;
+        
+        addLiveEvent(`👤 ${userName} is now ${isOnline ? '🟢 ONLINE' : '⚫ OFFLINE'}`, 'status');
+        addDebugLog(`👤 UserStatusChanged: ${userName} (${userId}) → ${isOnline ? 'ONLINE ✅' : 'OFFLINE ⚫'}`, isOnline ? 'success' : 'info');
+        
+        const newStatus = isOnline ? 'online' : 'offline';
+        
+        setUsers(prev =>
+          prev.map(u => {
+            const uIdNormalized = String(u.id).toLowerCase().trim();
+            if (uIdNormalized === userIdStr) {
+              addDebugLog(`✅ Updated ${u.name} status to ${newStatus}`, 'success');
+              return { ...u, lastActive: newStatus };
+            }
+            return u;
+          })
+        );
+        
+        if (selectedUserRef.current && String(selectedUserRef.current.id).toLowerCase().trim() === userIdStr) {
+          setSelectedUser(prev => {
+            if (!prev) return null;
+            const updated = { ...prev, lastActive: newStatus };
+            selectedUserRef.current = updated;
+            addDebugLog(`📍 Updated selected user status: ${newStatus.toUpperCase()}`, 'success');
+            return updated;
+          });
+        }
+      }));
+
+      connection.on('UserStatusList', safeHandler('UserStatusList', (statusList) => {
+        if (!statusList || !Array.isArray(statusList)) {
+          addDebugLog(`⚠️ Invalid UserStatusList received: ${typeof statusList}`, 'warning');
+          return;
+        }
+        
+        addLiveEvent(`📋 Status update for ${statusList.length} users`, 'status');
+        addDebugLog(`📋 UserStatusList received: ${JSON.stringify(statusList.slice(0, 3))}...`, 'info');
+        
+        setUsers(prev =>
+          prev.map(u => {
+            const status = statusList.find(s => String(s.userId) === String(u.id));
+            if (status) {
+              const newStatus = status.isOnline ? 'online' : 'offline';
+              if (u.lastActive !== newStatus) {
+                addDebugLog(`📊 ${u.name}: ${u.lastActive} → ${newStatus}`, 'info');
+              }
+              return { ...u, lastActive: newStatus };
+            }
+            return u;
+          })
+        );
+        
+        if (selectedUserRef.current) {
+          const selectedStatus = statusList.find(s => String(s.userId) === String(selectedUserRef.current.id));
+          if (selectedStatus) {
+            setSelectedUser(prev => {
+              if (!prev) return null;
+              const updated = { ...prev, lastActive: selectedStatus.isOnline ? 'online' : 'offline' };
+              selectedUserRef.current = updated;
+              return updated;
+            });
+          }
+        }
+      }));
+
+      connection.onreconnecting(() => {
+        addLiveEvent('⚠️ Connection lost, reconnecting...', 'error');
+        addDebugLog('SignalR reconnecting...', 'warning');
+        setConnectionState('Reconnecting');
+      });
+
+      connection.onreconnected(async (connectionId) => {
+        connectionAttemptsRef.current = 0; // Reset attempts on successful reconnect
+        addLiveEvent('✅ Reconnected successfully', 'success');
+        addDebugLog(`✅ SignalR reconnected with connection ID: ${connectionId}`, 'success');
+        setConnectionState('Connected');
+        
+        // Try to send any pending messages
+        if (selectedUserRef.current) {
+          const userIdStr = String(selectedUserRef.current.id);
+          if (pendingMessagesRef.current[userIdStr]?.length > 0) {
+            addDebugLog(`🔄 Re-sending ${pendingMessagesRef.current[userIdStr].length} pending messages`, 'info');
+          }
+        }
+      });
+
+      connection.onclose((error) => {
+        addLiveEvent('❌ Connection closed', 'error');
+        addDebugLog(`SignalR connection closed: ${error?.message || 'No error'}`, 'error');
+        setConnectionState('Disconnected');
+        
+        // Attempt to reconnect after delay
+        if (connectionAttemptsRef.current < maxConnectionAttempts) {
+          const delay = Math.min(5000 * connectionAttemptsRef.current, 30000); // Max 30 seconds
+          addDebugLog(`Will attempt to reconnect in ${delay/1000} seconds`, 'info');
+          setTimeout(() => {
+            if (!hubConnectionRef.current || hubConnectionRef.current.state !== signalR.HubConnectionState.Connected) {
+              setupSignalRConnection();
+            }
+          }, delay);
+        }
+      });
+
+      // Start the connection
+      addDebugLog('Starting SignalR connection...', 'info');
+      await connection.start();
+      
+      clearTimeout(connectionTimeout);
+      hubConnectionRef.current = connection;
+      connectionAttemptsRef.current = 0; // Reset on successful connection
+      setConnectionState('Connected');
+      addLiveEvent('✅ Connected to chat server', 'success');
+      addDebugLog('✅ SignalR connected successfully', 'success');
+
+    } catch (err) {
+      addLiveEvent(`❌ Connection failed: ${err.message}`, 'error');
+      addDebugLog(`❌ SignalR connection failed: ${err.message}`, 'error');
+      
+      let errorMessage = 'Real-time connection failed. Messages will be delayed.';
+      if (err.message.includes('404')) {
+        errorMessage = 'Chat server not found. Please contact support.';
+      } else if (err.message.includes('401')) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (err.message.includes('Network Error')) {
+        errorMessage = 'Network error. Check your internet connection.';
+      }
+      
+      setConnectionError(errorMessage);
+      setConnectionState('Disconnected');
+      
+      // Schedule retry
+      if (connectionAttemptsRef.current < maxConnectionAttempts) {
+        const retryDelay = Math.min(5000 * connectionAttemptsRef.current, 30000);
+        addDebugLog(`Scheduling retry in ${retryDelay/1000} seconds...`, 'info');
+        setTimeout(() => {
+          setupSignalRConnection();
+        }, retryDelay);
+      }
+    }
+  }, [user?.accessToken, user?.id, addDebugLog, users, addLiveEvent, fetchMessageImage]);
 
   const capitalizeRole = (role) => role?.charAt(0).toUpperCase() + role?.slice(1).toLowerCase() || 'User';
 
-  // Generate avatar with initials
   const generateInitialAvatar = (name, role) => {
-    const initials = name
-      ?.split(' ')
-      .map(word => word.charAt(0).toUpperCase())
-      .join('')
-      .substring(0, 2) || 'U';
+    const initials = name?.split(' ').map(word => word.charAt(0).toUpperCase()).join('').substring(0, 2) || 'U';
     const colors = {
-      doctor: { bg: '#4CAF50', text: '#FFFFFF' },
-      nurse: { bg: '#2196F3', text: '#FFFFFF' },
-      laboratory: { bg: '#FF9800', text: '#FFFFFF' },
-      patient: { bg: '#9C27B0', text: '#FFFFFF' },
-      default: { bg: '#757575', text: '#FFFFFF' }
+      doctor: { bg: '#28a745', text: '#FFFFFF' },
+      nurse: { bg: '#007bff', text: '#FFFFFF' },
+      laboratory: { bg: '#fd7e14', text: '#FFFFFF' },
+      patient: { bg: '#6f42c1', text: '#FFFFFF' },
+      default: { bg: '#6c757d', text: '#FFFFFF' }
     };
     const colorScheme = colors[role?.toLowerCase()] || colors.default;
+
     const canvas = document.createElement('canvas');
     canvas.width = 80;
     canvas.height = 80;
     const ctx = canvas.getContext('2d');
+
     ctx.fillStyle = colorScheme.bg;
     ctx.beginPath();
     ctx.arc(40, 40, 40, 0, 2 * Math.PI);
     ctx.fill();
+
     ctx.fillStyle = colorScheme.text;
     ctx.font = 'bold 28px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(initials, 40, 40);
+
     return canvas.toDataURL();
   };
 
-  // Scroll to bottom function
-  const scrollToBottom = useCallback((behavior = 'smooth') => {
+  const scrollToBottom = useCallback((behavior = 'auto') => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior, block: 'end', inline: 'nearest' });
+      messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
     }
   }, []);
 
-  // Create unique message identifier
-  const createMessageIdentifier = (senderId, recipientId, text, fileName, timestamp) => {
-    const normalizedText = (text || '').trim();
-    const normalizedFile = fileName || '';
-    const timeWindow = Math.floor(new Date(timestamp).getTime() / 5000);
-    return `${senderId}-${recipientId}-${normalizedText}-${normalizedFile}-${timeWindow}`;
-  };
-
-  // Add message with deduplication
-  const addMessage = useCallback((newMessage) => {
-    const messageId = createMessageIdentifier(
-      newMessage.senderId,
-      newMessage.recipientId,
-      newMessage.text,
-      newMessage.file,
-      newMessage.date
-    );
-
-    if (messageIdsRef.current.has(messageId)) {
-      console.log('🔄 Duplicate message detected, skipping:', messageId);
-      return false;
-    }
-
-    messageIdsRef.current.add(messageId);
-
-    if (messageIdsRef.current.size > 100) {
-      const idsArray = Array.from(messageIdsRef.current);
-      messageIdsRef.current = new Set(idsArray.slice(-100));
-    }
-
-    setMessages(prev => {
-      const withoutOptimistic = prev.filter(m => {
-        if (!m.isOptimistic) return true;
-        
-        const isSameMessage = 
-          String(m.senderId) === String(newMessage.senderId) &&
-          String(m.recipientId) === String(newMessage.recipientId) &&
-          m.text === newMessage.text &&
-          m.file === newMessage.file;
-        
-        return !isSameMessage;
-      });
-
-      const updated = [...withoutOptimistic, newMessage].sort((a, b) => 
-        new Date(a.date) - new Date(b.date)
-      );
-      
-      console.log('✅ Message added. Total messages:', updated.length);
-      return updated;
-    });
-
-    if (newMessage.file) {
-      fetchChatImage(newMessage.file, newMessage.id);
-    }
-
-    setTimeout(() => scrollToBottom('smooth'), 100);
-    
-    return true;
-  }, [scrollToBottom]);
-
-  // Enhanced SignalR connection
-  const initializeSignalR = async () => {
-    if (!user?.accessToken || !user?.id) {
-      console.warn('Missing authentication credentials');
-      return;
-    }
-    if (connectionRef.current) {
-      try {
-        await connectionRef.current.stop();
-      } catch (err) {
-        console.warn('Error stopping existing connection:', err);
-      }
-      connectionRef.current = null;
-    }
-    
-    const hubUrl = 'https://physiocareapp.runasp.net/chatHub';
-    const connection = new signalR.HubConnectionBuilder()
-      .withUrl(hubUrl, {
-        accessTokenFactory: () => user.accessToken,
-        skipNegotiation: false,
-        transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents | signalR.HttpTransportType.LongPolling,
-        withCredentials: false,
-        timeout: 30000
-      })
-      .withAutomaticReconnect({
-        nextRetryDelayInMilliseconds: retryContext => {
-          if (retryContext.previousRetryCount > 5) return null;
-          const delay = Math.min(30000, Math.pow(2, retryContext.previousRetryCount) * 1000 + Math.random() * 1000);
-          return delay;
-        }
-      })
-      .configureLogging(signalR.LogLevel.Warning)
-      .build();
-    connectionRef.current = connection;
-    
-    connection.onreconnecting(() => {
-      setConnectionState('Reconnecting');
-      setReconnectStatus('Reconnecting to chat server...');
-    });
-    
-    connection.onreconnected(() => {
-      setConnectionState('Connected');
-      setConnectionError(null);
-      setReconnectStatus('');
-      retryCountRef.current = 0;
-    });
-    
-    connection.onclose(async (error) => {
-      setConnectionState('Disconnected');
-      if (error) {
-        setConnectionError(`Connection lost: ${error.message || 'Unknown error'}`);
-        if (retryCountRef.current < maxRetries) {
-          setReconnectStatus(`Reconnecting (${retryCountRef.current + 1}/${maxRetries})...`);
-          await attemptManualReconnection();
-        } else {
-          setReconnectStatus('Max reconnection attempts reached. Please refresh.');
-        }
-      }
-    });
-    
-    connection.on('ReceiveMessage', (param1, param2, param3, param4, param5) => {
-      console.log('📨 ReceiveMessage event - RAW PARAMS:', { 
-        param1, 
-        param2, 
-        param3, 
-        param4, 
-        param5,
-        'param1 type': typeof param1,
-        'param1 keys': typeof param1 === 'object' ? Object.keys(param1 || {}) : 'N/A'
-      });
-      
-      let senderId, recipientId, messageText, date, fileName;
-      
-      // Handle if data comes as an object
-      if (typeof param1 === 'object' && param1 !== null && !Array.isArray(param1)) {
-        console.log('📦 Received as OBJECT - trying all possible property names');
-        
-        // Try all possible variations of sender ID
-        senderId = param1.senderId || param1.SenderId || param1.senderid || param1.sender_id || 
-                   param1.senderID || param1.SENDERID || param1['Sender ID'] || param1.sender;
-        
-        // Try all possible variations of recipient ID  
-        recipientId = param1.recipientId || param1.RecipientId || param1.recipientid || param1.recipient_id ||
-                      param1.recipientID || param1.RECIPIENTID || param1['Recipient ID'] || param1.recipient;
-        
-        // Try all possible variations of message text
-        messageText = param1.messageText || param1.MessageText || param1.messagetext || param1.message_text ||
-                      param1.text || param1.Text || param1.TEXT || param1.message || param1.Message || 
-                      param1.content || param1.Content;
-        
-        // Try all possible variations of date
-        date = param1.date || param1.Date || param1.DATE || param1.timestamp || param1.Timestamp || 
-               param1.createdAt || param1.CreatedAt || param1.created_at;
-        
-        // Try all possible variations of file name
-        fileName = param1.fileName || param1.FileName || param1.filename || param1.file_name ||
-                   param1.file || param1.File || param1.attachment || param1.Attachment;
-        
-        console.log('📦 Extracted from object:', { senderId, recipientId, messageText, date, fileName });
-      } 
-      // Handle if data comes as separate parameters
-      else {
-        console.log('📋 Received as PARAMETERS');
-        senderId = param1;
-        recipientId = param2;
-        messageText = param3;
-        date = param4;
-        fileName = param5;
-      }
-      
-      // Convert to strings and validate - be very careful with the conversion
-      const rawSenderId = senderId;
-      const rawRecipientId = recipientId;
-      
-      senderId = senderId != null ? String(senderId).trim() : '';
-      recipientId = recipientId != null ? String(recipientId).trim() : '';
-      messageText = messageText != null ? String(messageText).trim() : '';
-      
-      console.log('📨 Parsed and cleaned message:', { 
-        'Raw Sender': rawSenderId,
-        'Raw Recipient': rawRecipientId,
-        'Cleaned Sender': senderId || 'MISSING', 
-        'Cleaned Recipient': recipientId || 'MISSING', 
-        'Message Text': messageText || 'EMPTY', 
-        'Date': date, 
-        'File': fileName 
-      });
-      
-      // Validate we have minimum required data
-      if (!senderId || !recipientId) {
-        console.error('❌ Missing sender or recipient ID - cannot route message');
-        console.error('   This usually means the server is sending data in an unexpected format');
-        console.error('   Check the raw params above to see what format is being used');
-        return;
-      }
-      
-      if (!messageText && !fileName) {
-        console.warn('⚠️ No message text or file - skipping empty message');
-        return;
-      }
-      
-      const currentSelectedUser = selectedUserRef.current;
-      const stringSelectedId = currentSelectedUser?.id != null ? String(currentSelectedUser.id).trim() : '';
-      const stringUserId = user?.id != null ? String(user.id).trim() : '';
-      
-      console.log('🔍 Checking message routing with IDs:', {
-        'Message Sender ID': `"${senderId}"`,
-        'Message Recipient ID': `"${recipientId}"`,
-        'Selected User ID': `"${stringSelectedId}"`,
-        'Current User ID': `"${stringUserId}"`,
-        'Has Selected User': !!currentSelectedUser,
-        'Selected User Name': currentSelectedUser?.name || 'None'
-      });
-      
-      // Check if message is for current chat - log each comparison
-      const isIncomingMessage = (senderId === stringSelectedId) && (recipientId === stringUserId);
-      const isOutgoingMessage = (senderId === stringUserId) && (recipientId === stringSelectedId);
-      const isForCurrentChat = isIncomingMessage || isOutgoingMessage;
-      
-      console.log('🔍 Message type analysis:', {
-        'Is Incoming?': isIncomingMessage,
-        '  → Sender matches selected user?': senderId === stringSelectedId,
-        '  → Recipient matches current user?': recipientId === stringUserId,
-        'Is Outgoing?': isOutgoingMessage,
-        '  → Sender matches current user?': senderId === stringUserId,
-        '  → Recipient matches selected user?': recipientId === stringSelectedId,
-        'Final: For Current Chat?': isForCurrentChat
-      });
-      
-      if (isForCurrentChat && currentSelectedUser) {
-        const newMessage = {
-          id: `signalr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          text: messageText,
-          senderId: senderId,
-          recipientId: recipientId,
-          date: date || new Date().toISOString(),
-          file: fileName || null,
-          isOptimistic: false,
-          isDelivered: true
-        };
-        
-        console.log('✅ SUCCESS - Adding real-time message to chat:', newMessage);
-        addMessage(newMessage);
-      } else {
-        console.log('❌ REJECTED - Message not for current chat');
-        console.log('   Reason:', !currentSelectedUser ? 'No user selected' : 'Message for different conversation');
-        console.log('   Current Chat:', currentSelectedUser ? `${stringUserId} ↔ ${stringSelectedId}` : 'none');
-        console.log('   Message Chat:', `${senderId} ↔ ${recipientId}`);
-        console.log('   To see this message, select the correct user from the contacts list');
-      }
-    });
-    
-    connection.on('UserStatusChanged', (userId, status) => {
-      setUsers(prev =>
-        prev.map(u => (String(u.id) === String(userId) ? { ...u, lastActive: status } : u))
-      );
-    });
-    
-    connection.on('updateuserlist', (userList) => {
-      console.log('👥 updateuserlist event received:', userList);
-      
-      if (Array.isArray(userList)) {
-        const mappedUsers = userList.map(u => ({
-          id: u.userId || u.id || u.UserId || u.Id,
-          name: u.fullName || u.userName || u.FullName || u.UserName || `${capitalizeRole(u.role || u.Role)} User`,
-          role: u.role || u.Role || 'user',
-          fileName: u.fileName || u.FileName || null,
-          lastActive: u.lastActive || u.LastActive || 'offline',
-        }));
-        
-        const currentUserId = String(user?.id || '').trim();
-        console.log('🔍 Current User ID for filtering:', currentUserId);
-        console.log('📋 All mapped users before filtering:', mappedUsers.map(u => ({ id: String(u.id), name: u.name })));
-        
-        // Filter out current user - be very explicit
-        const filteredUsers = mappedUsers.filter(u => {
-          const userIdString = String(u.id || '').trim();
-          const isCurrentUser = userIdString === currentUserId;
-          console.log(`  → User ${u.name} (${userIdString}): ${isCurrentUser ? '❌ FILTERED OUT (current user)' : '✅ Keep'}`);
-          return !isCurrentUser;
-        });
-        
-        console.log('✅ Users after filtering out current user:', filteredUsers.map(u => ({ id: String(u.id), name: u.name })));
-        
-        const uniqueUsers = filteredUsers.reduce((acc, user) => {
-          if (!acc.find(u => String(u.id) === String(user.id))) {
-            acc.push(user);
-          }
-          return acc;
-        }, []);
-        
-        console.log('👥 Final unique users:', uniqueUsers.length);
-        
-        setUsers(prev => {
-          const existingIds = new Set(prev.map(u => String(u.id)));
-          const newUsers = uniqueUsers.filter(u => !existingIds.has(String(u.id)));
-          const updatedUsers = prev.map(u => {
-            const updated = uniqueUsers.find(nu => String(nu.id) === String(u.id));
-            return updated || u;
-          });
-          return [...updatedUsers, ...newUsers];
-        });
-        
-        uniqueUsers.forEach(u => {
-          if (u.fileName) fetchUserPhoto(u.fileName, u.role, u.id);
-        });
-      }
-    });
-    
-    try {
-      setConnectionState('Connecting');
-      setReconnectStatus('Connecting to chat server...');
-      await connection.start();
-      setConnectionState('Connected');
-      setConnectionError(null);
-      setReconnectStatus('');
-      retryCountRef.current = 0;
-      console.log('✅ SignalR connected successfully');
-    } catch (err) {
-      console.error('SignalR connection error:', err);
-      setConnectionState('Disconnected');
-      
-      let errorMessage = 'Chat connection issue. ';
-      
-      if (err.message?.includes('AbortError') || err.message?.includes('negotiation')) {
-        errorMessage += 'Server negotiation failed. Using fallback mode.';
-        console.log('⚠️ SignalR unavailable - app will work in API-only mode');
-      } else if (err.message?.includes('401') || err.message?.includes('403')) {
-        errorMessage += 'Authentication issue detected.';
-        try {
-          await refreshAuthToken();
-          console.log('🔄 Token refreshed, retrying connection...');
-          setTimeout(() => initializeSignalR(), 2000);
-          return;
-        } catch (refreshErr) {
-          errorMessage += ' Please log in again.';
-        }
-      } else if (err.message?.includes('404')) {
-        errorMessage += 'Chat service unavailable. Using fallback mode.';
-        console.log('⚠️ Hub not found - continuing with API-only');
-      } else if (err.message?.includes('timeout') || err.message?.includes('Timeout')) {
-        errorMessage += 'Connection timeout. Retrying...';
-      } else {
-        errorMessage += 'Using fallback mode.';
-      }
-      
-      setConnectionError(errorMessage);
-      
-      if (err.message?.includes('404') || err.message?.includes('AbortError')) {
-        console.log('⚠️ Permanent SignalR error - app will work in API-only mode');
-        setReconnectStatus('');
-        setTimeout(() => setConnectionError(null), 5000);
-        return;
-      }
-      
-      if (retryCountRef.current < maxRetries) {
-        setReconnectStatus(`Reconnecting (${retryCountRef.current + 1}/${maxRetries})...`);
-        await attemptManualReconnection();
-      } else {
-        setReconnectStatus('');
-        setTimeout(() => setConnectionError(null), 5000);
-      }
-    }
-  };
-
-  const attemptManualReconnection = async () => {
-    retryCountRef.current += 1;
-    if (retryCountRef.current > maxRetries) {
-      setReconnectStatus('Max reconnection attempts reached. Please refresh.');
-      return;
-    }
-    const delay = Math.min(30000, Math.pow(2, retryCountRef.current) * 1000);
-    await new Promise(resolve => setTimeout(resolve, delay));
-    if (connectionRef.current?.state === signalR.HubConnectionState.Disconnected) {
-      try {
-        setConnectionState('Connecting');
-        await connectionRef.current.start();
-        setConnectionState('Connected');
-        setConnectionError(null);
-        setReconnectStatus('');
-        retryCountRef.current = 0;
-      } catch (err) {
-        setConnectionState('Disconnected');
-        if (retryCountRef.current < maxRetries) {
-          setReconnectStatus(`Reconnection failed. Retrying (${retryCountRef.current + 1}/${maxRetries})...`);
-          await attemptManualReconnection();
-        } else {
-          setConnectionError('Unable to establish connection. Please refresh.');
-          setReconnectStatus('');
-        }
-      }
-    }
-  };
-
-  const handleManualReconnect = async () => {
-    retryCountRef.current = 0;
-    setConnectionError(null);
-    setReconnectStatus('');
-    await initializeSignalR();
-  };
-
-  // Fetch user profile photo
   const fetchUserPhoto = async (fileName, role, userId) => {
-    if (!fileName || !user?.accessToken) {
-      const userInfo = users.find(u => String(u.id) === String(userId)) || { name: 'User', role: role || 'user' };
-      const initialAvatar = generateInitialAvatar(userInfo.name, userInfo.role);
-      setUserPhotos(prev => ({ ...prev, [String(userId)]: initialAvatar }));
-      return;
-    }
     const userInfo = users.find(u => String(u.id) === String(userId)) || { name: 'User', role: role || 'user' };
     const initialAvatar = generateInitialAvatar(userInfo.name, userInfo.role);
     setUserPhotos(prev => ({ ...prev, [String(userId)]: initialAvatar }));
-    setLoadingImages(prev => new Set(prev).add(String(userId)));
+
+    const accessToken = localStorage.getItem('accessToken') || user?.accessToken;
+    if (!fileName || !accessToken) return;
+
     const rolePath = capitalizeRole(role);
     
-    const urlsToTry = [
-      `https://physiocareapp.runasp.net/api/v1/Upload/get-photo-by-user-id?userId=${encodeURIComponent(userId)}&path=Actors%2F${rolePath}`,
-      `https://physiocareapp.runasp.net/api/v1/Upload/image?filename=${encodeURIComponent(fileName)}&path=Actors%2F${rolePath}`,
-      `https://physiocareapp.runasp.net/api/v1/Upload/get-photo-by-user-id?userId=${encodeURIComponent(userId)}&path=${rolePath}`,
+    const pathsToTry = [
+      `Actors%2F${rolePath}`,
+      'Actors%2FPatient',
+      'Actors%2Fpatient',
+      'Patient',
+      'patient'
     ];
     
-    let success = false;
-    for (const url of urlsToTry) {
+    for (const path of pathsToTry) {
       try {
-        const res = await apiFetch(url);
+        const url = `https://physiocareapp.runasp.net/api/v1/Upload/image?filename=${encodeURIComponent(fileName)}&path=${path}`;
+        const res = await fetchImageWithRetry(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        
         if (res.ok) {
           const blob = await res.blob();
           const imgUrl = URL.createObjectURL(blob);
           setUserPhotos(prev => ({ ...prev, [String(userId)]: imgUrl }));
-          success = true;
-          break;
+          addDebugLog(`✅ Loaded photo for user ${userId} from path: ${path}`, 'success');
+          return;
         }
       } catch (err) {
         continue;
       }
     }
     
-    if (!success) {
-      console.warn(`Photo not found for user ${userId}, using initials`);
-    }
-    
-    setLoadingImages(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(String(userId));
-      return newSet;
-    });
-  };
-
-  // Fetch chat image
-  const fetchChatImage = async (fileName, messageId) => {
-    if (!fileName || !user?.accessToken) return;
-    setLoadingImages(prev => new Set(prev).add(String(messageId)));
-    
-    const urlsToTry = [
-      `https://physiocareapp.runasp.net/api/v1/Upload/image?filename=${encodeURIComponent(fileName)}&path=Chat`,
-      `https://physiocareapp.runasp.net/api/v1/Upload/get-image?filename=${encodeURIComponent(fileName)}&path=Chat`,
-      `https://physiocareapp.runasp.net/api/v1/Chat/get-image?filename=${encodeURIComponent(fileName)}`,
-    ];
-    
-    let success = false;
-    for (const url of urlsToTry) {
-      try {
-        const res = await apiFetch(url);
-        if (res.ok) {
-          const blob = await res.blob();
-          const imgUrl = URL.createObjectURL(blob);
-          setUserPhotos(prev => ({ ...prev, [String(messageId)]: imgUrl }));
-          success = true;
-          break;
-        }
-      } catch (err) {
-        continue;
-      }
-    }
-    
-    if (!success) {
-      console.warn(`Chat image not found: ${fileName}`);
-    }
-    
-    setLoadingImages(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(String(messageId));
-      return newSet;
-    });
+    addDebugLog(`Using initial avatar for user ${userId} - no photo found`, 'info');
   };
 
   const fetchChatUsers = async () => {
-    if (!user?.accessToken || !user?.id) return;
-    
-    const currentUserId = String(user.id).trim();
-    console.log('🔍 fetchChatUsers - Current User ID:', currentUserId);
-    
-    const role = user.role?.toLowerCase() || 'patient';
-    let rolesToFetch = [];
-    if (role === 'patient') {
-      rolesToFetch = ['doctor', 'nurse', 'laboratory'];
-    } else {
-      rolesToFetch = ['patient'];
-    }
-    
+    const accessToken = localStorage.getItem('accessToken') || user?.accessToken;
+    if (!accessToken || !user?.id) return;
+
+    const role = (user.role || user.Role || 'patient').toLowerCase();
+    const rolesToFetch = role === 'patient' ? ['doctor', 'nurse', 'laboratory'] : ['patient'];
+
     try {
-      const chatRes = await apiFetch(
-        `https://physiocareapp.runasp.net/api/v1/Message/get-all-users-chatting-with-current-users?CurrentUserId=${user.id}`
-      );
-      let chatData = [];
-      if (chatRes.ok) {
-        chatData = await chatRes.json().catch(() => []);
-        console.log('📋 Chatted users:', chatData);
-      } else {
-        console.warn('⚠️ Failed to fetch chatted users:', chatRes.status);
-      }
-      const chattedUserIds = new Set(Array.isArray(chatData) ? chatData.map(u => String(u.userId || u.id)) : []);
+      addDebugLog(`Fetching users for roles: ${rolesToFetch.join(', ')}`, 'info');
+
       const rolePromises = rolesToFetch.map(async r => {
         const res = await apiFetch(
-         `https://physiocareapp.runasp.net/api/v1/Admins/get-all-basic-info-users-by-role?role=${r}`
+          `https://physiocareapp.runasp.net/api/v1/Admins/get-all-basic-info-users-by-role?role=${r}`
         );
         if (!res.ok) return [];
         const data = await res.json().catch(() => []);
-        return Array.isArray(data)
-          ? data
-              .filter(u => u.lastActive === 'online' || chattedUserIds.has(String(u.userId || u.id)))
-              .map(u => ({ ...u, role: r }))
-          : [];
+        return Array.isArray(data) ? data.map(u => ({ ...u, role: r })) : [];
       });
+
       const allUsers = (await Promise.all(rolePromises)).flat();
-      
-      console.log('📋 All users before filtering:', allUsers.map(u => ({ 
-        id: String(u.userId || u.id), 
-        name: u.fullName || u.userName 
-      })));
-      
-      // Filter out current user - be very explicit with logging
+
       const filteredUsers = allUsers.filter(u => {
         const userId = String(u.userId || u.id).trim();
-        const isCurrentUser = userId === currentUserId;
-        console.log(`  → User ${u.fullName || u.userName} (${userId}): ${isCurrentUser ? '❌ FILTERED (current user)' : '✅ Keep'}`);
-        return !isCurrentUser;
+        return userId && userId !== String(user.id).trim();
       });
-      
-      console.log('✅ Filtered users (excluding current user):', filteredUsers.map(u => ({ 
-        id: String(u.userId || u.id), 
-        name: u.fullName || u.userName 
-      })));
-      
+
       const mapped = filteredUsers.map(u => ({
         id: u.userId || u.id,
         name: u.fullName || u.userName || `${capitalizeRole(u.role)} User`,
@@ -652,582 +802,1190 @@ const ChatApp = () => {
         fileName: u.fileName || null,
         lastActive: u.lastActive || 'offline',
       }));
-      
+
       const uniqueUsers = mapped.reduce((acc, user) => {
         if (!acc.find(u => String(u.id) === String(user.id))) {
           acc.push(user);
         }
         return acc;
       }, []);
-      
-      console.log('👥 Total unique users (excluding current user):', uniqueUsers.length);
+
+      addDebugLog(`✅ Loaded ${uniqueUsers.length} users`, 'success');
       setUsers(uniqueUsers);
-      
-      uniqueUsers.forEach(u => {
+
+      // Fetch user photos with delay between each
+      uniqueUsers.forEach((u, index) => {
         if (u.fileName) {
-          fetchUserPhoto(u.fileName, u.role, u.id);
+          setTimeout(() => {
+            fetchUserPhoto(u.fileName, u.role, u.id);
+          }, index * 300); // 300ms delay between each photo fetch
         } else {
-          const initialAvatar = generateInitialAvatar(u.name, u.role);
-          setUserPhotos(prev => ({ ...prev, [String(u.id)]: initialAvatar }));
+          const avatar = generateInitialAvatar(u.name, u.role);
+          setUserPhotos(prev => ({ ...prev, [String(u.id)]: avatar }));
         }
       });
+
+      fetchChattedUsers();
     } catch (err) {
-      console.error('Failed to fetch chat users:', err);
-      setConnectionError('Failed to load users. Please refresh.');
-      setUsers([]);
+      addDebugLog(`Failed to fetch users: ${err.message}`, 'error');
     }
   };
 
-  const fetchMessages = async (recipientId) => {
-    if (!user?.accessToken || !user?.id || !recipientId) return;
-    setIsLoadingMessages(true);
-    
-    messageIdsRef.current.clear();
-    
+  const fetchChattedUsers = async () => {
+    const accessToken = localStorage.getItem('accessToken') || user?.accessToken;
+    if (!accessToken || !user?.id) return;
+
     try {
-      let allMessages = [];
-      let chatRes = await apiFetch(
-        `https://physiocareapp.runasp.net/api/v1/Chat/get-all-messages?senderId=${user.id}&recipientId=${recipientId}`
+      addDebugLog(`Fetching chatted users for current user ${user.id}`, 'info');
+      
+      const response = await apiFetch(
+        `https://physiocareapp.runasp.net/api/v1/Message/get-all-users-chatting-with-current-users?CurrentUserId=${encodeURIComponent(user.id)}`
       );
-      if (chatRes.ok) {
-        const chatData = await chatRes.json().catch(() => []);
-        allMessages = Array.isArray(chatData) ? chatData : [];
-        console.log('✅ Loaded messages from Chat endpoint');
-      } else {
-        console.log('Chat endpoint failed, falling back to Message endpoints');
-        let res1 = await apiFetch(
-          `https://physiocareapp.runasp.net/api/v1/Message/get-all-messages-by-sender-id-and-recipient-id?senderId=${user.id}&recipientId=${recipientId}`
-        );
-        if (res1.ok) {
-          const data1 = await res1.json().catch(() => []);
-          allMessages = [...allMessages, ...(Array.isArray(data1) ? data1 : [])];
-        }
-        let res2 = await apiFetch(
-          `https://physiocareapp.runasp.net/api/v1/Message/get-all-messages-by-sender-id-and-recipient-id?senderId=${recipientId}&recipientId=${user.id}`
-        );
-        if (res2.ok) {
-          const data2 = await res2.json().catch(() => []);
-          allMessages = [...allMessages, ...(Array.isArray(data2) ? data2 : [])];
-        }
+
+      if (!response.ok) {
+        addDebugLog(`Failed to fetch chatted users: ${response.status}`, 'warning');
+        return;
       }
-      const formatted = (Array.isArray(allMessages) ? allMessages : []).map(m => {
-        const messageId = m.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const msg = {
-          id: messageId,
-          text: m.messageText || '',
-          senderId: String(m.senderId),
-          recipientId: String(m.recipientId),
-          date: m.date || new Date().toISOString(),
-          file: m.fileName || null,
-          isOptimistic: false
-        };
-        
-        const msgId = createMessageIdentifier(msg.senderId, msg.recipientId, msg.text, msg.file, msg.date);
-        messageIdsRef.current.add(msgId);
-        
-        if (m.fileName) fetchChatImage(m.fileName, messageId);
-        return msg;
+
+      const data = await response.json();
+      const chattedUserIds = Array.isArray(data) ? data.map(u => String(u.userId || u.id || u)) : [];
+      
+      addDebugLog(`✅ Found ${chattedUserIds.length} chatted users`, 'success');
+
+      setChattedUsers(prev => {
+        const chatted = users.filter(u => 
+          chattedUserIds.some(id => String(id).toLowerCase().trim() === String(u.id).toLowerCase().trim())
+        );
+        addDebugLog(`📨 Chatted users: ${chatted.map(u => u.name).join(', ')}`, 'info');
+        return chatted;
       });
-      setMessages(formatted.sort((a, b) => new Date(a.date) - new Date(b.date)));
-      setTimeout(() => scrollToBottom('auto'), 200);
     } catch (err) {
-      console.error('Failed to fetch messages:', err);
+      addDebugLog(`Failed to fetch chatted users: ${err.message}`, 'error');
+    }
+  };
+
+  const fetchMessages = async (userId) => {
+    const accessToken = localStorage.getItem('accessToken') || user?.accessToken;
+    if (!userId || !accessToken) return;
+
+    setIsLoadingMessages(true);
+
+    try {
+      const response = await apiFetch(
+        `https://physiocareapp.runasp.net/api/v1/Message/get-all-messages-by-sender-id-and-recipient-id?senderId=${encodeURIComponent(user.id)}&recipientId=${encodeURIComponent(userId)}`
+      );
+
+      if (!response.ok) throw new Error('Failed to fetch messages');
+
+      const data = await response.json();
+      const messagesArray = Array.isArray(data) ? data : [];
+
+      messageIdsRef.current.clear();
+
+      const mapped = messagesArray.map(msg => ({
+        id: msg.id,
+        text: msg.messageText || msg.text || '',
+        senderId: String(msg.senderId || ''),
+        recipientId: String(msg.recipientId || ''),
+        date: msg.date || new Date().toISOString(),
+        file: msg.fileName || msg.file || null,
+        isOptimistic: false,
+        isDelivered: true,
+        isUnread: false
+      }));
+
+      const sorted = mapped.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      const userIdStr = String(userId);
+      const pendingMessages = pendingMessagesRef.current[userIdStr] || [];
+
+      if (pendingMessages.length > 0) {
+        addDebugLog(`Found ${pendingMessages.length} pending messages for user ${userIdStr}`, 'info');
+
+        const allMessages = [...sorted, ...pendingMessages].sort((a, b) =>
+          new Date(a.date) - new Date(b.date)
+        );
+
+        setMessages(allMessages);
+
+        const newPending = { ...pendingMessagesRef.current };
+        delete newPending[userIdStr];
+        pendingMessagesRef.current = newPending;
+
+        setUnreadCounts(prev => {
+          const newCounts = { ...prev };
+          delete newCounts[userIdStr];
+          return newCounts;
+        });
+      } else {
+        setMessages(sorted);
+      }
+
+      addDebugLog(`✅ Loaded ${sorted.length} messages`, 'success');
+      setTimeout(() => scrollToBottom('auto'), 100);
+      
+      // Fetch images with delay to avoid overwhelming server
+      sorted.forEach((msg, index) => {
+        if (msg.file && /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(msg.file)) {
+          setTimeout(() => {
+            fetchMessageImage(msg.file, msg.id);
+          }, index * 500); // 500ms delay between each image fetch
+        }
+      });
+    } catch (err) {
+      addDebugLog(`Failed to fetch messages: ${err.message}`, 'error');
       setMessages([]);
-      setConnectionError('Failed to load messages. Please try again.');
     } finally {
       setIsLoadingMessages(false);
     }
   };
 
   const handleSendMessage = async () => {
-    if (!user?.accessToken || !selectedUser || (!message.trim() && !file)) {
-      return;
-    }
-    
-    const messageToSend = message.trim() || ' ';
-    const displayText = message.trim();
+    // Allow sending either text OR file (image) OR both
+    if ((!message.trim() && !file) || !selectedUser) return;
+
+    const messageToSend = message.trim();
     const fileToSend = file;
-    
+    const currentSelectedUser = selectedUser;
+
     setMessage('');
     setFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    setFilePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
 
     const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Create preview URL for immediate display
+    let optimisticImageUrl = null;
+    if (fileToSend && /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(fileToSend.name)) {
+      optimisticImageUrl = URL.createObjectURL(fileToSend);
+      setMessageImages(prev => ({ ...prev, [optimisticId]: optimisticImageUrl }));
+    }
+    
     const optimisticMessage = {
       id: optimisticId,
-      text: displayText,
       senderId: String(user.id),
-      recipientId: String(selectedUser.id),
+      recipientId: String(currentSelectedUser.id),
+      text: messageToSend,
       date: new Date().toISOString(),
       file: fileToSend ? fileToSend.name : null,
       isOptimistic: true,
-      isSending: true
+      isDelivered: false,
+      isUnread: false,
+      // Store image blob URL for immediate display
+      localImageUrl: optimisticImageUrl
     };
 
-    setMessages(prev => {
-      const newMessages = [...prev, optimisticMessage].sort((a, b) => new Date(a.date) - new Date(b.date));
-      return newMessages;
-    });
+    // Immediately add to UI
+    setMessages(prev => [...prev, optimisticMessage]);
+    requestAnimationFrame(() => scrollToBottom('auto'));
+    addDebugLog(`📤 Optimistic message shown (ID: ${optimisticId})`, 'info');
 
-    setTimeout(() => scrollToBottom('smooth'), 50);
-    setConnectionError(null);
-    setIsSendingMessage(true);
-
-    pendingMessagesRef.current.set(optimisticId, {
-      text: displayText,
-      file: fileToSend?.name,
-      timestamp: Date.now()
-    });
-
-    let signalRSuccess = false;
-    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
+    // Send to server
+    (async () => {
       try {
-        const methodsToTry = [
-          { name: 'sendmessage', args: [String(user.id), String(selectedUser.id), messageToSend, fileToSend ? fileToSend.name : null] },
-          { name: 'sendmessage', args: [{ 
-            senderId: String(user.id), 
-            recipientId: String(selectedUser.id), 
-            messageText: messageToSend, 
-            fileName: fileToSend ? fileToSend.name : null 
-          }] },
-          { name: 'SendMessage', args: [String(user.id), String(selectedUser.id), messageToSend, fileToSend ? fileToSend.name : null] },
-          { name: 'sendmessage', args: [String(user.id), String(selectedUser.id), messageToSend] },
-        ];
+        const formData = new FormData();
+        
+        formData.append('SenderId', String(user.id));
+        formData.append('RecipientId', String(currentSelectedUser.id));
+        
+        // CRITICAL FIX: Server requires MessageText to have a value, not null or empty
+        // Send a space character if there's no text
+        const messageText = messageToSend || ' ';
+        formData.append('MessageText', messageText);
+        
+        const userName = user.name || user.userName || user.fullName || user.email?.split('@')[0] || 'User';
+        formData.append('UserName', userName);
 
-        for (const method of methodsToTry) {
+        if (fileToSend) {
+          addDebugLog(`📎 Uploading file: ${fileToSend.name} (${(fileToSend.size / 1024).toFixed(2)} KB)`, 'info');
+          formData.append('ImageFile', fileToSend, fileToSend.name);
+        }
+
+        addDebugLog(`📤 FormData: SenderId=${user.id}, RecipientId=${currentSelectedUser.id}, MessageText="${messageText}", UserName="${userName}", HasFile=${!!fileToSend}`, 'info');
+
+        const accessToken = localStorage.getItem('accessToken') || user?.accessToken;
+        
+        if (!accessToken) {
+          throw new Error('No access token available');
+        }
+
+        const response = await fetch('https://physiocareapp.runasp.net/api/v1/Chat/sendmessage', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: formData
+        });
+
+        addDebugLog(`📡 Response Status: ${response.status}`, response.ok ? 'success' : 'error');
+
+        if (!response.ok) {
+          let errorDetails = `HTTP ${response.status}`;
           try {
-            await connectionRef.current.invoke(method.name, ...method.args);
-            console.log(`✅ Message sent via SignalR using method: ${method.name}`);
-            signalRSuccess = true;
-            break;
-          } catch (err) {
-            continue;
+            const errorText = await response.text();
+            addDebugLog(`❌ Error response body: ${errorText}`, 'error');
+            
+            try {
+              const errorJson = JSON.parse(errorText);
+              if (errorJson.title) errorDetails = errorJson.title;
+              if (errorJson.errors) {
+                const validationErrors = Object.entries(errorJson.errors)
+                  .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+                  .join('; ');
+                errorDetails = `Validation error: ${validationErrors}`;
+              }
+            } catch {
+              errorDetails = errorText.substring(0, 200);
+            }
+          } catch {
+            errorDetails = `HTTP ${response.status} - Could not read error details`;
           }
+          
+          throw new Error(errorDetails);
         }
 
-        if (!signalRSuccess) {
-          throw new Error('All SignalR method attempts failed');
+        const responseData = await response.json().catch(() => ({ success: true }));
+        addDebugLog(`✅ Server response: ${JSON.stringify(responseData)}`, 'success');
+        addLiveEvent(`✅ Message sent to ${currentSelectedUser.name}`, 'success');
+
+        // Update optimistic message to delivered state
+        setTimeout(() => {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === optimisticId ? { 
+                ...m, 
+                isOptimistic: false, 
+                isDelivered: true,
+                id: `delivered-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+              } : m
+            )
+          );
+          addDebugLog('✅ Optimistic message converted to delivered', 'success');
+        }, 1000);
+
+        // Try to send via SignalR if connected
+        if (hubConnectionRef.current && hubConnectionRef.current.state === 'Connected') {
+          try {
+            // Send via SignalR for immediate delivery
+            await hubConnectionRef.current.invoke('SendMessage', 
+              String(user.id), 
+              String(currentSelectedUser.id), 
+              messageText,
+              new Date().toISOString(),
+              fileToSend ? fileToSend.name : null
+            ).catch(err => {
+              addDebugLog(`⚠️ SignalR send failed (but API succeeded): ${err.message}`, 'warning');
+            });
+          } catch (signalrErr) {
+            addDebugLog(`⚠️ SignalR invoke error: ${signalrErr.message}`, 'warning');
+          }
+        } else {
+          addDebugLog('⚠️ SignalR not connected, message saved via API only', 'warning');
         }
-      } catch (signalRError) {
-        console.error('❌ SignalR send failed:', signalRError);
-        console.log('⚠️ Continuing with API-only send...');
+
+      } catch (err) {
+        addLiveEvent(`❌ Failed: ${err.message}`, 'error');
+        addDebugLog(`❌ Send failed: ${err.message}`, 'error');
+
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === optimisticId ? { 
+              ...m, 
+              isFailed: true, 
+              isOptimistic: false, 
+              errorMessage: err.message 
+            } : m
+          )
+        );
       }
-    } else {
-      console.log('⚠️ SignalR not connected, using API only');
-    }
+    })();
+  };
 
-    const formData = new FormData();
-    formData.append('SenderId', user.id);
-    formData.append('RecipientId', selectedUser.id);
-    formData.append('Date', new Date().toISOString());
-    formData.append('MessageText', messageToSend);
-    formData.append('UserName', user.name || user.userName || 'User');
-    if (fileToSend) {
-      formData.append('ImageFile', fileToSend);
-    }
-
-    try {
-      const res = await apiFetch('https://physiocareapp.runasp.net/api/v1/Chat/sendmessage', {
-        method: 'POST',
-        body: formData,
-      });
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!validTypes.includes(selectedFile.type)) {
+        alert('Invalid file type. Only images (JPG, PNG, GIF), PDFs, and Word documents are allowed.');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
       
-      await res.text().catch(() => 'Success');
-      console.log('✅ Message sent via API');
-
-      setTimeout(() => {
-        pendingMessagesRef.current.delete(optimisticId);
-        setMessages(prev => prev.map(m => 
-          m.id === optimisticId ? { 
-            ...m, 
-            isOptimistic: false, 
-            isSending: false,
-            isDelivered: true,
-            id: `confirmed-${Date.now()}` 
-          } : m
-        ));
-        setIsSendingMessage(false);
-      }, 500);
-
-      setConnectionError(null);
-
-    } catch (err) {
-      console.error('❌ Failed to send message:', err);
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
       
-      pendingMessagesRef.current.delete(optimisticId);
-      setMessages(prev => prev.filter(m => m.id !== optimisticId));
-      setMessage(displayText);
-      setFile(fileToSend);
-      setIsSendingMessage(false);
+      addDebugLog(`✅ File selected: ${selectedFile.name} (${(selectedFile.size / 1024).toFixed(2)} KB, ${selectedFile.type})`, 'success');
+      setFile(selectedFile);
       
-      let errorMsg = 'Failed to send message. ';
-      if (err.message.includes('401') || err.message.includes('403') || err.message.includes('Authentication')) {
-        errorMsg += 'Authentication failed. Please log in again.';
-      } else if (err.message.includes('404')) {
-        errorMsg += 'Chat service not found.';
-      } else if (err.message.includes('400')) {
-        errorMsg += 'Invalid message format. Please try again.';
-      } else if (err.message.includes('Network')) {
-        errorMsg += 'Network error. Check your connection.';
+      // Create preview for images
+      if (selectedFile.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setFilePreview(e.target.result);
+        };
+        reader.readAsDataURL(selectedFile);
       } else {
-        errorMsg += 'Please try again.';
+        setFilePreview(null);
       }
-      
-      setConnectionError(errorMsg);
-      
-      setTimeout(() => {
-        setConnectionError(null);
-      }, 10000);
     }
   };
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      requestAnimationFrame(() => scrollToBottom('smooth'));
+  const handleRemoveFile = () => {
+    setFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
-  }, [messages, scrollToBottom]);
+  };
 
-  useEffect(() => {
-    fetchChatUsers();
-    initializeSignalR();
-    return () => {
-      if (connectionRef.current) {
-        connectionRef.current.stop().catch(err =>
-          console.error('SignalR disconnect error:', err)
-        );
-      }
-    };
-  }, [user?.id, user?.accessToken]);
+  const formatMessageTime = (date) => {
+    const messageDate = new Date(date);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
 
-  useEffect(() => {
-    if (selectedUser) {
-      selectedUserRef.current = selectedUser;
-      setMessages([]);
-      messageIdsRef.current.clear();
-      pendingMessagesRef.current.clear();
-      fetchMessages(selectedUser.id);
+    const isToday = messageDate.toDateString() === today.toDateString();
+    const isYesterday = messageDate.toDateString() === yesterday.toDateString();
+
+    if (isToday) {
+      return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (isYesterday) {
+      return 'Yesterday ' + messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } else {
-      selectedUserRef.current = null;
+      return messageDate.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
+        messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
-  }, [selectedUser]);
+  };
 
-  return (
-    <>
-      <Navbar />
-      <div className="d-flex flex-column" style={{ 
-        minHeight: '100vh',
-        paddingTop: '70px',
-        paddingBottom: '60px',
-        backgroundColor: '#f8f9fa'
-      }}>
-        <div className="container-fluid flex-grow-1 py-3" style={{ maxWidth: '1600px' }}>
-          <div className="card shadow-lg h-100" style={{ 
-            maxHeight: 'calc(100vh - 140px)',
-            minHeight: '600px'
-          }}>
-            <div className="card-body p-0 d-flex flex-column" style={{ height: '100%' }}>
-              <div className="row g-0 flex-grow-1" style={{ minHeight: 0 }}>
-                {/* Users Sidebar */}
-                <div className="col-md-4 col-lg-3 border-end d-flex flex-column" style={{ 
-                  height: '100%',
-                  minHeight: 0
+  const handleUserClick = (clickedUser) => {
+    if (selectedUser?.id === clickedUser.id) return;
+
+    addDebugLog(`👤 Switching to conversation with ${clickedUser.name} (${clickedUser.id})`, 'info');
+    
+    setSelectedUser(clickedUser);
+    selectedUserRef.current = clickedUser;
+    
+    setMessages([]);
+    messageIdsRef.current.clear();
+
+    const userIdStr = String(clickedUser.id);
+    setUnreadCounts(prev => {
+      const newCounts = { ...prev };
+      delete newCounts[userIdStr];
+      return newCounts;
+    });
+
+    fetchMessages(clickedUser.id);
+  };
+
+  const handleNotificationClick = (notification) => {
+    const sender = users.find(u => u.name === notification.senderName);
+    if (sender) {
+      handleUserClick(sender);
+    }
+    setNotifications(prev => prev.filter(n => n.id !== notification.id));
+  };
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const getCategorizedUsers = () => {
+    const isPatient = (user.role || user.Role || 'patient').toLowerCase() === 'patient';
+    
+    if (!isPatient) {
+      return { 
+        chattedUsers: chattedUsers.filter(u => u.role.toLowerCase() === 'patient'),
+        all: users 
+      };
+    }
+
+    // Get online users from ALL roles
+    const onlineUsers = users.filter(u => u.lastActive === 'online');
+    const doctors = users.filter(u => u.role.toLowerCase() === 'doctor');
+    const nurses = users.filter(u => u.role.toLowerCase() === 'nurse');
+    const laboratories = users.filter(u => u.role.toLowerCase() === 'laboratory');
+
+    return { chattedUsers, onlineUsers, doctors, nurses, laboratories };
+  };
+
+  const renderUserItem = (u) => {
+    const unreadCount = unreadCounts[String(u.id)] || 0;
+    return (
+      <div
+        key={u.id}
+        onClick={() => handleUserClick(u)}
+        style={{
+          padding: '12px 16px',
+          cursor: 'pointer',
+          backgroundColor: selectedUser?.id === u.id ? '#f0f2f5' : '#ffffff',
+          borderBottom: '1px solid #e0e0e0',
+          transition: 'background-color 0.2s'
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = selectedUser?.id === u.id ? '#f0f2f5' : '#ffffff'}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ position: 'relative' }}>
+            <img
+              src={userPhotos[String(u.id)] || generateInitialAvatar(u.name, u.role)}
+              alt={u.name}
+              style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '0',
+                right: '0',
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%',
+                backgroundColor: u.lastActive === 'online' ? '#25D366' : '#95a5a6',
+                border: '2px solid #ffffff'
+              }}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <span style={{ fontWeight: '600', fontSize: '15px', color: '#000000' }}>{u.name}</span>
+              {unreadCount > 0 && (
+                <div style={{
+                  backgroundColor: '#25D366',
+                  color: '#ffffff',
+                  borderRadius: '12px',
+                  padding: '2px 8px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  minWidth: '20px',
+                  textAlign: 'center'
                 }}>
-                  <div className="p-3 border-bottom bg-light flex-shrink-0">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div className="d-flex align-items-center gap-2">
-                        <Users size={20} className="text-primary" />
-                        <h5 className="mb-0 fw-bold">Contacts</h5>
-                      </div>
-                      <div className="d-flex align-items-center gap-2">
-                        {connectionState === 'Connected' ? (
-                          <Wifi size={16} className="text-success" title="Connected" />
-                        ) : (
-                          <WifiOff size={16} className="text-danger" title="Disconnected" />
-                        )}
-                        {connectionState === 'Disconnected' && (
-                          <button
-                            onClick={handleManualReconnect}
-                            className="btn btn-sm btn-outline-primary p-1"
-                            title="Reconnect"
-                          >
-                            <RefreshCw size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex-grow-1 overflow-auto" style={{ 
-                    overflowY: 'auto',
-                    overflowX: 'hidden',
-                    minHeight: 0
-                  }}>
-                    {users.length === 0 ? (
-                      <div className="text-center py-5 text-muted">
-                        <Users size={48} className="mb-3" style={{ opacity: 0.3 }} />
-                        <p>No contacts available</p>
-                      </div>
-                    ) : (
-                      <div className="list-group list-group-flush">
-                        {users.map(u => (
-                          <div
-                            key={String(u.id)}
-                            className={`list-group-item list-group-item-action ${String(selectedUser?.id) === String(u.id) ? 'active' : ''}`}
-                            onClick={() => setSelectedUser(u)}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <div className="d-flex align-items-center">
-                              <div className="position-relative">
-                                <img
-                                  src={userPhotos[String(u.id)] || generateInitialAvatar(u.name, u.role)}
-                                  alt={u.name}
-                                  className="rounded-circle border"
-                                  style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                                />
-                                {u.lastActive === 'online' && (
-                                  <span
-                                    className="position-absolute bottom-0 end-0 bg-success rounded-circle border border-2 border-white"
-                                    style={{ width: '12px', height: '12px' }}
-                                  ></span>
-                                )}
-                              </div>
-                              <div className="ms-3 flex-grow-1">
-                                <h6 className="mb-0">{u.name}</h6>
-                                <small className={String(selectedUser?.id) === String(u.id) ? 'text-white-50' : 'text-muted'}>
-                                  {capitalizeRole(u.role)}
-                                </small>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  {unreadCount}
                 </div>
-                {/* Chat Area */}
-                <div className="col-md-8 col-lg-9 d-flex flex-column" style={{ 
-                  height: '100%',
-                  minHeight: 0
-                }}>
-                  {selectedUser ? (
-                    <>
-                      {/* Chat Header */}
-                      <div className="p-3 border-bottom bg-light flex-shrink-0">
-                        <div className="d-flex align-items-center gap-3">
-                          <img
-                            src={userPhotos[String(selectedUser.id)] || generateInitialAvatar(selectedUser.name, selectedUser.role)}
-                            alt={selectedUser.name}
-                            className="rounded-circle border"
-                            style={{ width: '45px', height: '45px', objectFit: 'cover' }}
-                          />
-                          <div className="flex-grow-1">
-                            <h6 className="mb-0 fw-bold">{selectedUser.name}</h6>
-                            <small className="text-muted">{capitalizeRole(selectedUser.role)}</small>
-                          </div>
-                          <div className="d-flex align-items-center gap-2">
-                            {connectionState === 'Connected' ? (
-                              <span className="badge bg-success">
-                                <Wifi size={12} className="me-1" />
-                                Connected
-                              </span>
-                            ) : (
-                              <span className="badge bg-danger">
-                                <WifiOff size={12} className="me-1" />
-                                Disconnected
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      {/* Messages Container */}
-                      <div
-                        ref={messagesContainerRef}
-                        className="flex-grow-1 p-3"
-                        style={{ 
-                          backgroundColor: '#f8f9fa',
-                          overflowY: 'auto',
-                          overflowX: 'hidden',
-                          minHeight: 0,
-                          maxHeight: '100%'
-                        }}
-                      >
-                        {isLoadingMessages ? (
-                          <div className="d-flex align-items-center justify-content-center h-100">
-                            <div className="spinner-border text-primary" role="status">
-                              <span className="visually-hidden">Loading messages...</span>
-                            </div>
-                          </div>
-                        ) : messages.length === 0 ? (
-                          <div className="d-flex align-items-center justify-content-center h-100 text-muted">
-                            <div className="text-center">
-                              <Send size={48} className="mb-3" style={{ opacity: 0.3 }} />
-                              <p>No messages yet. Start the conversation!</p>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            {messages.map(msg => (
-                              <div
-                                key={String(msg.id)}
-                                className={`mb-3 d-flex ${String(msg.senderId) === String(user.id) ? 'justify-content-end' : 'justify-content-start'}`}
-                              >
-                                <div
-                                  className={`p-3 rounded-3 shadow-sm ${
-                                    String(msg.senderId) === String(user.id)
-                                      ? 'bg-primary text-white'
-                                      : 'bg-white border'
-                                  }`}
-                                  style={{
-                                    maxWidth: '70%',
-                                    opacity: msg.isOptimistic ? 0.7 : 1,
-                                    wordWrap: 'break-word',
-                                    transition: 'opacity 0.3s ease'
-                                  }}
-                                >
-                                  {msg.file && (
-                                    <div className="mb-2">
-                                      {userPhotos[String(msg.id)] ? (
-                                        <img
-                                          src={userPhotos[String(msg.id)]}
-                                          alt="Attached"
-                                          className="rounded img-fluid"
-                                          style={{ maxHeight: '200px', maxWidth: '100%' }}
-                                        />
-                                      ) : loadingImages.has(String(msg.id)) ? (
-                                        <div className="d-flex align-items-center gap-2 small">
-                                          <div className="spinner-border spinner-border-sm" role="status">
-                                            <span className="visually-hidden">Loading...</span>
-                                          </div>
-                                          <span>Loading image...</span>
-                                        </div>
-                                      ) : (
-                                        <div className="d-flex align-items-center gap-2 small">
-                                          <Paperclip size={16} />
-                                          <span>{msg.file}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                  {msg.text && <p className="mb-1" style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>}
-                                  <small className={String(msg.senderId) === String(user.id) ? 'text-white-50' : 'text-muted'}>
-                                    {new Date(msg.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    {msg.isSending && (
-                                      <span className="ms-2">
-                                        <div className="spinner-border spinner-border-sm" role="status" style={{ width: '10px', height: '10px', borderWidth: '1px' }}>
-                                          <span className="visually-hidden">Sending...</span>
-                                        </div>
-                                      </span>
-                                    )}
-                                    {msg.isDelivered && !msg.isSending && String(msg.senderId) === String(user.id) && (
-                                      <span className="ms-1">✓✓</span>
-                                    )}
-                                    {msg.isOptimistic && !msg.isSending && ' ⏳'}
-                                  </small>
-                                </div>
-                              </div>
-                            ))}
-                            <div ref={messagesEndRef} style={{ height: '1px' }} />
-                          </>
-                        )}
-                      </div>
-                      {/* Status Messages */}
-                      {(connectionError || reconnectStatus) && (
-                        <div className={`mx-3 mb-2 alert ${connectionError ? 'alert-danger' : 'alert-info'} py-2 mb-0 flex-shrink-0`}>
-                          <small>{connectionError || reconnectStatus}</small>
-                        </div>
-                      )}
-                      {/* File Preview */}
-                      {file && (
-                        <div className="mx-3 mb-2 alert alert-secondary py-2 d-flex justify-content-between align-items-center flex-shrink-0">
-                          <div className="d-flex align-items-center gap-2">
-                            <Paperclip size={16} />
-                            <span className="small">{file.name}</span>
-                          </div>
-                          <button
-                            onClick={() => {
-                              setFile(null);
-                              if (fileInputRef.current) fileInputRef.current.value = '';
-                            }}
-                            className="btn btn-sm btn-link text-danger p-0"
-                          >
-                            <X size={18} />
-                          </button>
-                        </div>
-                      )}
-                      {/* Input Area */}
-                      <div className="p-3 border-top bg-white flex-shrink-0">
-                        <div className="input-group">
-                          <input
-                            type="text"
-                            value={message}
-                            onChange={e => setMessage(e.target.value)}
-                            onKeyPress={e => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSendMessage();
-                              }
-                            }}
-                            placeholder="Type your message..."
-                            className="form-control"
-                            disabled={connectionState !== 'Connected'}
-                          />
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={e => setFile(e.target.files?.[0] || null)}
-                            style={{ display: 'none' }}
-                          />
-                          <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="btn btn-outline-secondary"
-                            disabled={connectionState !== 'Connected'}
-                            title="Attach image"
-                          >
-                            <Paperclip size={18} />
-                          </button>
-                          <button
-                            onClick={handleSendMessage}
-                            disabled={(!message.trim() && !file) || connectionState !== 'Connected' || isSendingMessage}
-                            className="btn btn-primary"
-                          >
-                            {isSendingMessage ? (
-                              <>
-                                <div className="spinner-border spinner-border-sm me-1" role="status" style={{ width: '14px', height: '14px', borderWidth: '2px' }}>
-                                  <span className="visually-hidden">Sending...</span>
-                                </div>
-                                Sending...
-                              </>
-                            ) : (
-                              <>
-                                <Send size={18} className="me-1" />
-                                Send
-                              </>
-                            )}
-                          </button>
-                        </div>
-                        {connectionState !== 'Connected' && (
-                          <small className="text-muted d-block mt-2">
-                            <WifiOff size={12} className="me-1" />
-                            Waiting for connection...
-                          </small>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="d-flex align-items-center justify-content-center h-100 text-muted">
-                      <div className="text-center">
-                        <Users size={64} className="mb-3" style={{ opacity: 0.3 }} />
-                        <h5>Select a contact to start chatting</h5>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              )}
+            </div>
+            <div style={{ fontSize: '12px', color: '#667781' }}>
+              {capitalizeRole(u.role)} • {u.lastActive === 'online' ? '🟢 Online' : '⚫ Offline'}
             </div>
           </div>
         </div>
       </div>
-    </>
+    );
+  };
+
+  const renderCategorizedUserList = () => {
+    const isPatient = (user.role || user.Role || 'patient').toLowerCase() === 'patient';
+    const categorized = getCategorizedUsers();
+
+    if (!isPatient) {
+      return (
+        <>
+          {categorized.chattedUsers.length > 0 && (
+            <div>
+              <div
+                onClick={() => toggleSection('chatted')}
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#e3f2fd',
+                  borderBottom: '1px solid #bbdefb',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontWeight: 'bold',
+                  color: '#1565c0'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>💬 Recent Chats ({categorized.chattedUsers.length})</span>
+                </div>
+                {expandedSections.chatted ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+              </div>
+              {expandedSections.chatted && categorized.chattedUsers.map(u => renderUserItem(u))}
+            </div>
+          )}
+
+          <div>
+            <div
+              style={{
+                padding: '12px 16px',
+                backgroundColor: '#f5f5f5',
+                borderBottom: '1px solid #e0e0e0',
+                fontWeight: 'bold',
+                color: '#666'
+              }}
+            >
+              All Patients ({categorized.all.length})
+            </div>
+            {categorized.all.map(u => renderUserItem(u))}
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {categorized.chattedUsers.length > 0 && (
+          <div>
+            <div
+              onClick={() => toggleSection('chatted')}
+              style={{
+                padding: '12px 16px',
+                backgroundColor: '#e3f2fd',
+                borderBottom: '1px solid #bbdefb',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontWeight: 'bold',
+                color: '#1565c0'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>💬 Recent Chats ({categorized.chattedUsers.length})</span>
+              </div>
+              {expandedSections.chatted ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+            </div>
+            {expandedSections.chatted && categorized.chattedUsers.map(u => renderUserItem(u))}
+          </div>
+        )}
+
+        {categorized.onlineUsers.length > 0 && (
+          <div>
+            <div
+              onClick={() => toggleSection('online')}
+              style={{
+                padding: '12px 16px',
+                backgroundColor: '#e8f5e9',
+                borderBottom: '1px solid #c8e6c9',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontWeight: 'bold',
+                color: '#2e7d32'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#25D366' }}></div>
+                <span>🟢 Online Now ({categorized.onlineUsers.length})</span>
+              </div>
+              {expandedSections.online ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+            </div>
+            {expandedSections.online && categorized.onlineUsers.map(u => renderUserItem(u))}
+          </div>
+        )}
+
+        {categorized.doctors.length > 0 && (
+          <div>
+            <div
+              onClick={() => toggleSection('doctor')}
+              style={{
+                padding: '12px 16px',
+                backgroundColor: '#e8f5e9',
+                borderBottom: '1px solid #c8e6c9',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontWeight: 'bold',
+                color: '#28a745'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>👨‍⚕️ Doctors ({categorized.doctors.length})</span>
+              </div>
+              {expandedSections.doctor ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+            </div>
+            {expandedSections.doctor && categorized.doctors.map(u => renderUserItem(u))}
+          </div>
+        )}
+
+        {categorized.nurses.length > 0 && (
+          <div>
+            <div
+              onClick={() => toggleSection('nurse')}
+              style={{
+                padding: '12px 16px',
+                backgroundColor: '#e3f2fd',
+                borderBottom: '1px solid #bbdefb',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontWeight: 'bold',
+                color: '#1976d2'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>👩‍⚕️ Nurses ({categorized.nurses.length})</span>
+              </div>
+              {expandedSections.nurse ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+            </div>
+            {expandedSections.nurse && categorized.nurses.map(u => renderUserItem(u))}
+          </div>
+        )}
+
+        {categorized.laboratories.length > 0 && (
+          <div>
+            <div
+              onClick={() => toggleSection('laboratory')}
+              style={{
+                padding: '12px 16px',
+                backgroundColor: '#fff3e0',
+                borderBottom: '1px solid #ffe0b2',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontWeight: 'bold',
+                color: '#e65100'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🔬 Laboratories ({categorized.laboratories.length})</span>
+              </div>
+              {expandedSections.laboratory ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+            </div>
+            {expandedSections.laboratory && categorized.laboratories.map(u => renderUserItem(u))}
+          </div>
+        )}
+      </>
+    );
+  };
+
+  useEffect(() => {
+    if (user?.id && (localStorage.getItem('accessToken') || user?.accessToken)) {
+      fetchChatUsers();
+      
+      // Delay SignalR connection to ensure auth is settled
+      setTimeout(() => {
+        setupSignalRConnection();
+      }, 1000);
+
+      const handleBeforeUnload = async () => {
+        addDebugLog('Browser closing - SignalR will disconnect automatically', 'info');
+      };
+
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          addDebugLog('Tab hidden - connection maintained', 'info');
+        } else {
+          addDebugLog('Tab visible - connection active', 'info');
+          // Try to reconnect if disconnected when tab becomes visible
+          if (!hubConnectionRef.current || hubConnectionRef.current.state !== signalR.HubConnectionState.Connected) {
+            addDebugLog('Tab became visible but SignalR is not connected, attempting reconnect', 'info');
+            setupSignalRConnection();
+          }
+        }
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+
+        if (hubConnectionRef.current && hubConnectionRef.current.state === 'Connected') {
+          addDebugLog('Component unmounting - closing SignalR connection', 'info');
+          
+          hubConnectionRef.current.stop().then(() => {
+            hubConnectionRef.current = null;
+          }).catch(err => {
+            console.error('Error stopping connection:', err);
+          });
+        }
+        
+        // Clean up image cache
+        imageCacheRef.current.forEach(url => {
+          if (url.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
+          }
+        });
+        imageCacheRef.current.clear();
+        
+        // Clear message images
+        Object.values(messageImages).forEach(url => {
+          if (url.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
+          }
+        });
+        
+        // Abort pending image fetches
+        abortControllersRef.current.forEach(controller => {
+          controller.abort();
+        });
+        abortControllersRef.current.clear();
+      };
+    }
+  }, [user?.id, user?.accessToken]);
+
+  useEffect(() => {
+    if (users.length > 0 && user?.id) {
+      fetchChattedUsers();
+    }
+  }, [users.length]);
+
+  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+  }, [selectedUser]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (notifications.length > 0) {
+        setNotifications(prev => prev.slice(1));
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [notifications]);
+
+  // Add manual reconnect button functionality
+  const handleManualReconnect = () => {
+    connectionAttemptsRef.current = 0;
+    setConnectionError(null);
+    addDebugLog('Manual reconnect requested', 'info');
+    setupSignalRConnection();
+  };
+
+  if (authLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems:'center', justifyContent: 'center', height: '100vh', fontFamily: 'Arial, sans-serif' }}>
+        <div style={{ textAlign: 'center' }}>
+          <RefreshCw className="animate-spin" size={48} style={{ margin: '0 auto 16px' }} />
+          <p style={{ fontSize: '18px', color: '#666' }}>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Arial, sans-serif' }}>
+        <div style={{ textAlign: 'center', padding: '32px', backgroundColor: '#f8f9fa', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+          <AlertCircle size={48} style={{ color: '#dc3545', margin: '0 auto 16px' }} />
+          <h2 style={{ fontSize: '24px', marginBottom: '8px' }}>Authentication Required</h2>
+          <p style={{ color: '#666' }}>Please log in to access the chat.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', fontFamily: 'Arial, sans-serif', backgroundColor: '#f0f2f5' }}>
+      <div style={{ width: '320px', backgroundColor: '#ffffff', borderRight: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '16px', borderBottom: '1px solid #e0e0e0', backgroundColor: '#128C7E' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#ffffff', margin: 0 }}>Messages</h2>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {connectionState === 'Connected' ? (
+                <Wifi size={20} style={{ color: '#25D366' }} />
+              ) : connectionState === 'Reconnecting' ? (
+                <RefreshCw size={20} className="animate-spin" style={{ color: '#FFA500' }} />
+              ) : (
+                <WifiOff size={20} style={{ color: '#dc3545' }} />
+              )}
+              <button
+                onClick={() => setDebugMode(!debugMode)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ffffff',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  fontSize: '12px'
+                }}
+              >
+                {debugMode ? '🐛' : '⚙️'}
+              </button>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#ffffff', opacity: 0.9 }}>
+            {connectionState} • {users.length} contacts
+          </div>
+        </div>
+
+        {connectionError && (
+          <div style={{ padding: '12px', backgroundColor: '#fff3cd', borderBottom: '1px solid #ffc107', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertCircle size={16} style={{ color: '#856404' }} />
+              <span style={{ fontSize: '12px', color: '#856404' }}>{connectionError}</span>
+            </div>
+            <button
+              onClick={handleManualReconnect}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#ffc107',
+                border: 'none',
+                borderRadius: '4px',
+                color: '#856404',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                alignSelf: 'flex-start'
+              }}
+            >
+              <RefreshCw size={12} />
+              Reconnect
+            </button>
+          </div>
+        )}
+
+        {liveEvents.length > 0 && (
+          <div style={{ padding: '8px', backgroundColor: '#e7f3ff', borderBottom: '1px solid #bee5eb', maxHeight: '120px', overflowY: 'auto' }}>
+            {liveEvents.map(event => (
+              <div key={event.id} style={{ fontSize: '11px', color: '#004085', padding: '4px 8px', marginBottom: '4px', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: '4px' }}>
+                {event.event}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {notifications.length > 0 && (
+          <div style={{ padding: '8px', backgroundColor: '#d4edda', borderBottom: '1px solid #c3e6cb' }}>
+            {notifications.map(notif => (
+              <div
+                key={notif.id}
+                onClick={() => handleNotificationClick(notif)}
+                style={{
+                  padding: '8px',
+                  marginBottom: '4px',
+                  backgroundColor: '#ffffff',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <Bell size={14} style={{ color: '#155724' }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 'bold', color: '#155724' }}>{notif.senderName}</div>
+                  <div style={{ color: '#666' }}>{notif.message}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {renderCategorizedUserList()}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#efeae2' }}>
+        {selectedUser ? (
+          <>
+            <div style={{ padding: '12px 16px', backgroundColor: '#f0f2f5', borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <img
+                src={userPhotos[String(selectedUser.id)] || generateInitialAvatar(selectedUser.name, selectedUser.role)}
+                alt={selectedUser.name}
+                style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: '600', fontSize: '16px', color: '#000000' }}>{selectedUser.name}</div>
+                <div style={{ fontSize: '13px', color: '#667781' }}>
+                  {selectedUser.lastActive === 'online' ? '🟢 Online' : '⚫ Offline'} • {capitalizeRole(selectedUser.role)}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px', backgroundImage: 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFklEQVR42mN49+7dfwYiAOOoQvoqBABG6xx8R3yLcAAAAABJRU5ErkJggg==)', backgroundRepeat: 'repeat' }}>
+              {isLoadingMessages ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '32px' }}>
+                  <RefreshCw className="animate-spin" size={32} style={{ color: '#667781' }} />
+                </div>
+              ) : messages.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px', color: '#667781' }}>
+                  <Users size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+                  <p>No messages yet. Start the conversation!</p>
+                </div>
+              ) : (
+                messages.map((msg, index) => {
+                  const isFromMe = String(msg.senderId) === String(user.id);
+                  const showAvatar = index === 0 || String(messages[index - 1].senderId) !== String(msg.senderId);
+
+                  // Check if message has image
+                  const hasImage = msg.file && /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(msg.file);
+                  const imageUrl = messageImages[msg.id] || msg.localImageUrl;
+                  
+                  // Check if this is an image-only message (no text or text is just a space)
+                  const isImageOnly = hasImage && (!msg.text?.trim() || msg.text === ' ');
+
+                  return (
+                    <div
+                      key={msg.id}
+                      style={{
+                        display: 'flex',
+                        justifyContent: isFromMe ? 'flex-end' : 'flex-start',
+                        marginBottom: '8px',
+                        alignItems: 'flex-end',
+                        gap: '8px'
+                      }}
+                    >
+                      {!isFromMe && (
+                        <img
+                          src={userPhotos[String(selectedUser.id)] || generateInitialAvatar(selectedUser.name, selectedUser.role)}
+                          alt={selectedUser.name}
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            visibility: showAvatar ? 'visible' : 'hidden'
+                          }}
+                        />
+                      )}
+                      <div
+                        style={{
+                          maxWidth: '65%',
+                          padding: isImageOnly ? '4px' : '8px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: isFromMe ? '#d9fdd3' : '#ffffff',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                          position: 'relative',
+                          opacity: msg.isOptimistic ? 0.7 : 1
+                        }}
+                      >
+                        {msg.text?.trim() && msg.text !== ' ' && <div style={{ marginBottom: hasImage ? '8px' : '4px', wordWrap: 'break-word', color: '#000000' }}>{msg.text}</div>}
+                        {hasImage && (
+                          <div style={{ marginTop: (msg.text?.trim() && msg.text !== ' ') ? '8px' : '0' }}>
+                            {imageUrl ? (
+                              <div>
+                                <img
+                                  src={imageUrl}
+                                  alt="Image"
+                                  style={{
+                                    maxWidth: '100%',
+                                    maxHeight: '400px',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    display: 'block',
+                                    objectFit: 'cover'
+                                  }}
+                                  onClick={() => window.open(imageUrl, '_blank')}
+                                />
+                              </div>
+                            ) : (
+                              <div style={{ 
+                                width: '200px', 
+                                height: '200px', 
+                                backgroundColor: 'rgba(0,0,0,0.05)', 
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#667781'
+                              }}>
+                                <RefreshCw className="animate-spin" size={24} />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {msg.file && !hasImage && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '4px', cursor: 'pointer' }}
+                            onClick={() => {
+                              const accessToken = localStorage.getItem('accessToken') || user?.accessToken;
+                              const url = `https://physiocareapp.runasp.net/api/v1/Upload/image?filename=${encodeURIComponent(msg.file)}&path=Chat`;
+                              fetch(url, {
+                                headers: { 'Authorization': `Bearer ${accessToken}` }
+                              }).then(res => res.blob()).then(blob => {
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = msg.file;
+                                a.click();
+                              });
+                            }}
+                          >
+                            <Paperclip size={16} />
+                            <span style={{ fontSize: '13px', color: '#667781', textDecoration: 'underline' }}>
+                              {msg.file}
+                            </span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: '4px' }}>
+                          <span style={{ fontSize: '11px', color: '#667781' }}>{formatMessageTime(msg.date)}</span>
+                          {isFromMe && (
+                            msg.isFailed ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title={msg.errorMessage || 'Failed to send'}>
+                                <AlertCircle size={14} style={{ color: '#dc3545' }} />
+                                <span style={{ fontSize: '10px', color: '#dc3545' }}>Failed</span>
+                              </div>
+                            ) : msg.isOptimistic ? (
+                              <Clock size={14} style={{ color: '#95a5a6' }} title="Sending..." />
+                            ) : msg.isDelivered ? (
+                              <CheckCheck size={14} style={{ color: '#34b7f1' }} title="Delivered" />
+                            ) : (
+                              <Check size={14} style={{ color: '#95a5a6' }} title="Sent" />
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div style={{ padding: '12px 16px', backgroundColor: '#f0f2f5', borderTop: '1px solid #e0e0e0' }}>
+              {(file || filePreview) && (
+                <div style={{ marginBottom: '8px', padding: '8px 12px', backgroundColor: '#ffffff', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {file?.type?.startsWith('image/') ? (
+                      <ImageIcon size={16} style={{ color: '#128C7E' }} />
+                    ) : (
+                      <Paperclip size={16} style={{ color: '#128C7E' }} />
+                    )}
+                    <span style={{ fontSize: '14px', color: '#000000' }}>{file?.name}</span>
+                    {filePreview && (
+                      <div style={{ marginLeft: '8px', width: '40px', height: '40px', borderRadius: '4px', overflow: 'hidden' }}>
+                        <img src={filePreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={handleRemoveFile} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+                    <X size={18} style={{ color: '#dc3545' }} />
+                  </button>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                  accept="image/*,.pdf,.doc,.docx"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    padding: '10px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #d1d7db',
+                    borderRadius: '24px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Paperclip size={20} style={{ color: '#667781' }} />
+                </button>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type a message or attach a file"
+                  style={{
+                    flex: 1,
+                    padding: '10px 16px',
+                    borderRadius: '24px',
+                    border: '1px solid #d1d7db',
+                    resize: 'none',
+                    fontSize: '15px',
+                    fontFamily: 'Arial, sans-serif',
+                    maxHeight: '100px',
+                    minHeight: '40px'
+                  }}
+                  rows={1}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!message.trim() && !file}
+                  title={file ? `Send ${file.name}` : 'Send message'}
+                  style={{
+                    padding: '10px',
+                    backgroundColor: message.trim() || file ? '#128C7E' : '#d1d7db',
+                    border: 'none',
+                    borderRadius: '24px',
+                    cursor: message.trim() || file ? 'pointer' : 'not-allowed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'background-color 0.2s'
+                  }}
+                >
+                  <Send size={20} style={{ color: '#ffffff' }} />
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#667781' }}>
+            <Users size={64} style={{ marginBottom: '16px', opacity: 0.5 }} />
+            <h3 style={{ fontSize: '24px', marginBottom: '8px' }}>Welcome to Chat</h3>
+            <p style={{ fontSize: '15px' }}>Select a conversation to start messaging</p>
+          </div>
+        )}
+      </div>
+
+      {debugMode && (
+        <div style={{ width: '320px', backgroundColor: '#1e1e1e', color: '#d4d4d4', padding: '16px', overflowY: 'auto', fontSize: '11px', fontFamily: 'Consolas, monospace', borderLeft: '1px solid #333' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 style={{ margin: 0, color: '#4ec9b0' }}>Debug Console</h3>
+            <button onClick={() => setDebugLogs([])} style={{ background: '#333', border: 'none', color: '#d4d4d4', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px' }}>Clear</button>
+          </div>
+          <div style={{ marginBottom: '12px', padding: '8px', backgroundColor: '#2d2d2d', borderRadius: '4px' }}>
+            <div><strong>Connection:</strong> {connectionState}</div>
+            <div><strong>User ID:</strong> {user?.id}</div>
+            <div><strong>Role:</strong> {user?.role || user?.Role}</div>
+            <div><strong>Users:</strong> {users.length}</div>
+            <div><strong>Messages:</strong> {messages.length}</div>
+            <div><strong>Online:</strong> {users.filter(u => u.lastActive === 'online').length}</div>
+            <div><strong>Doctors Online:</strong> {users.filter(u => u.role.toLowerCase() === 'doctor' && u.lastActive === 'online').length}</div>
+            <div><strong>Nurses Online:</strong> {users.filter(u => u.role.toLowerCase() === 'nurse' && u.lastActive === 'online').length}</div>
+            <div><strong>Labs Online:</strong> {users.filter(u => u.role.toLowerCase() === 'laboratory' && u.lastActive === 'online').length}</div>
+            <div><strong>Image Queue:</strong> {imageFetchQueueRef.current.length}</div>
+            <div><strong>Image Cache:</strong> {imageCacheRef.current.size}</div>
+            <div><strong>Connection Attempts:</strong> {connectionAttemptsRef.current}/{maxConnectionAttempts}</div>
+            <button
+              onClick={handleManualReconnect}
+              style={{
+                marginTop: '8px',
+                padding: '4px 8px',
+                backgroundColor: '#4ec9b0',
+                border: 'none',
+                borderRadius: '4px',
+                color: '#1e1e1e',
+                fontSize: '10px',
+                cursor: 'pointer',
+                width: '100%'
+              }}
+            >
+              Force Reconnect
+            </button>
+          </div>
+          <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+            {debugLogs.map((log, i) => (
+              <div key={i} style={{ marginBottom: '6px', padding: '6px', backgroundColor: log.type === 'error' ? '#571818' : log.type === 'warning' ? '#5e5217' : log.type === 'success' ? '#1a4d2e' : '#2d2d2d', borderRadius: '4px', borderLeft: `3px solid ${log.type === 'error' ? '#f14c4c' : log.type === 'warning' ? '#cca700' : log.type === 'success' ? '#4ec9b0' : '#007acc'}` }}>
+                <div style={{ color: '#808080', fontSize: '9px', marginBottom: '2px' }}>{log.timestamp}</div>
+                <div>{log.message}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
